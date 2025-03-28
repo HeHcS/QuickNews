@@ -9,7 +9,7 @@ import {
 
 export default function BottomNavigation() {
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-dark border-t border-darkGray z-20">
+    <div className="fixed bottom-0 left-0 right-0 bg-dark border-t border-darkGray z-20 max-w-[calc(100vh*9/16)] mx-auto">
       <div className="flex justify-around items-center py-2">
         <NavItem icon={<FaHome className="text-xl" />} label="Home" active />
         <NavItem icon={<FaCompass className="text-xl" />} label="Discover" />

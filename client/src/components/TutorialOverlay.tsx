@@ -11,7 +11,7 @@ export default function TutorialOverlay({ onClose }: TutorialOverlayProps) {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="bg-dark rounded-xl p-4 border border-primary w-full max-w-md"
+        className="bg-dark rounded-xl p-4 border border-primary w-full max-w-[calc(100vh*9/16)]"
       >
         <h3 className="font-bold text-lg mb-2 text-white">Welcome to QuickNews!</h3>
         <p className="text-mediumGray text-sm mb-4">

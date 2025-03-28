@@ -37,25 +37,25 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/50"></div>
       
       {/* Video Info */}
-      <div className="absolute bottom-20 left-4 right-16 z-10">
+      <div className="absolute bottom-20 left-4 right-20 z-10">
         <h3 className="font-bold text-lg mb-1 text-white">{video.title}</h3>
         <p className="text-sm text-lightGray mb-2">{video.username}</p>
         <p className="text-xs text-lightGray line-clamp-2">{video.description}</p>
       </div>
       
       {/* Right side action buttons */}
-      <div className="absolute right-2 bottom-28 flex flex-col items-center space-y-5 z-10">
+      <div className="absolute right-3 bottom-28 flex flex-col items-center space-y-6 z-10">
         {/* Profile */}
         <div className="flex flex-col items-center">
-          <div className="w-10 h-10 rounded-full border-2 border-white overflow-hidden mb-1">
+          <div className="w-12 h-12 rounded-full border-2 border-white overflow-hidden mb-1 relative">
             <img 
               src={video.creatorProfilePic} 
               alt="Creator profile" 
               className="w-full h-full object-cover" 
             />
-          </div>
-          <div className="absolute -bottom-1">
-            <FaPlus className="text-xs bg-primary text-white p-1 rounded-full" />
+            <div className="absolute -bottom-1 right-0">
+              <FaPlus className="text-xs bg-primary text-white p-1 rounded-full" />
+            </div>
           </div>
         </div>
         
@@ -66,7 +66,7 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
             onClick={handleLike}
             className="action-btn"
           >
-            <FaHeart className={`text-2xl ${liked ? 'text-primary' : 'text-white'}`} />
+            <FaHeart className={`text-3xl ${liked ? 'text-primary' : 'text-white'}`} />
           </motion.button>
           <span className="text-xs mt-1 text-white">{liked ? video.likesCount + 1 : video.likesCount}</span>
         </div>
@@ -78,9 +78,24 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
             onClick={onOpenComments}
             className="action-btn"
           >
-            <FaCommentDots className="text-2xl text-white" />
+            <FaCommentDots className="text-3xl text-white" />
           </motion.button>
           <span className="text-xs mt-1 text-white">{video.commentsCount}</span>
+        </div>
+        
+        {/* Sound */}
+        <div className="flex flex-col items-center">
+          <motion.button 
+            whileTap={{ scale: 0.9 }}
+            className="action-btn relative w-12 h-12 rounded-full overflow-hidden border-2 border-white"
+          >
+            <img 
+              src={video.creatorProfilePic} 
+              alt="Sound" 
+              className="w-full h-full object-cover" 
+            />
+          </motion.button>
+          <span className="text-xs mt-1 text-white">Sound</span>
         </div>
         
         {/* Bookmark */}
@@ -90,7 +105,7 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
             onClick={handleBookmark}
             className="action-btn"
           >
-            <FaBookmark className={`text-2xl ${saved ? 'text-primary' : 'text-white'}`} />
+            <FaBookmark className={`text-3xl ${saved ? 'text-primary' : 'text-white'}`} />
           </motion.button>
           <span className="text-xs mt-1 text-white">Save</span>
         </div>
@@ -102,25 +117,25 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
             onClick={onOpenShare}
             className="action-btn"
           >
-            <FaShare className="text-2xl text-white" />
+            <FaShare className="text-3xl text-white" />
           </motion.button>
           <span className="text-xs mt-1 text-white">Share</span>
         </div>
       </div>
       
       {/* Time indicator */}
-      <div className="absolute top-10 right-4 bg-black/50 px-2 py-1 rounded-full text-xs text-white">
+      <div className="absolute top-16 right-4 bg-black/50 px-2 py-1 rounded-full text-xs text-white">
         <span>{video.duration}</span>
       </div>
       
       {/* Topic tag or Live indicator */}
       {video.isLive ? (
-        <div className="absolute top-10 left-4 bg-red-600 px-2 py-1 rounded-full text-xs font-medium flex items-center">
+        <div className="absolute top-16 left-4 bg-red-600 px-2 py-1 rounded-full text-xs font-medium flex items-center">
           <span className="w-2 h-2 bg-white rounded-full mr-1 animate-pulse"></span>
           <span className="text-white">LIVE</span>
         </div>
       ) : (
-        <div className="absolute top-10 left-4 bg-primary px-2 py-1 rounded-full text-xs font-medium text-white">
+        <div className="absolute top-16 left-4 bg-primary px-2 py-1 rounded-full text-xs font-medium text-white">
           <span>{video.topic}</span>
         </div>
       )}
