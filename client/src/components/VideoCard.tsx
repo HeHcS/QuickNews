@@ -83,21 +83,6 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
           <span className="text-xs mt-1 text-white">{video.commentsCount}</span>
         </div>
         
-        {/* Sound */}
-        <div className="flex flex-col items-center">
-          <motion.button 
-            whileTap={{ scale: 0.9 }}
-            className="action-btn relative w-12 h-12 rounded-full overflow-hidden border-2 border-white"
-          >
-            <img 
-              src={video.creatorProfilePic} 
-              alt="Sound" 
-              className="w-full h-full object-cover" 
-            />
-          </motion.button>
-          <span className="text-xs mt-1 text-white">Sound</span>
-        </div>
-        
         {/* Bookmark */}
         <div className="flex flex-col items-center">
           <motion.button 
@@ -120,6 +105,21 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
             <FaShare className="text-3xl text-white" />
           </motion.button>
           <span className="text-xs mt-1 text-white">Share</span>
+        </div>
+        
+        {/* Sound */}
+        <div className="flex flex-col items-center">
+          <motion.button 
+            whileTap={{ scale: 0.9 }}
+            className="action-btn relative w-12 h-12 rounded-full overflow-hidden border-2 border-white"
+          >
+            <img 
+              src={video.creatorProfilePic} 
+              alt="Sound" 
+              className="w-full h-full object-cover" 
+            />
+          </motion.button>
+          <span className="text-xs mt-1 text-white">Sound</span>
         </div>
       </div>
       

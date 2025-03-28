@@ -23,7 +23,7 @@ export default function TopicsHeader() {
   };
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-20 border-b border-darkGray/20">
+    <div className="fixed top-0 left-0 right-0 z-20 bg-black max-w-[calc(100vh*9/19.5)] mx-auto">
       <div className="flex items-center justify-center py-3 px-4">
         <div className="flex space-x-4 overflow-x-auto no-scrollbar">
           {activeTopics.map(topic => (

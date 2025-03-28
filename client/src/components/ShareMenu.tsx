@@ -35,7 +35,7 @@ export default function ShareMenu({ onClose }: ShareMenuProps) {
           animate={{ y: 0 }}
           exit={{ y: "100%" }}
           transition={{ type: "spring", damping: 25 }}
-          className="w-full max-w-[calc(100vh*9/16)] bg-dark rounded-t-3xl p-4"
+          className="w-full max-w-[calc(100vh*9/19.5)] bg-dark rounded-t-3xl p-4"
         >
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-lg text-white">Share to</h3>

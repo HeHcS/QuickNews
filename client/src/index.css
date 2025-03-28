@@ -23,7 +23,7 @@
   }
   
   .mobile-container {
-    max-width: calc(100vh * 9 / 16);
+    max-width: calc(100vh * 9 / 19.5);
     height: 100vh;
     margin: 0 auto;
     position: relative;

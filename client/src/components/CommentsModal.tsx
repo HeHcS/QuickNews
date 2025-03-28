@@ -61,7 +61,7 @@ export default function CommentsModal({ videoId, onClose }: CommentsModalProps) 
           animate={{ y: 0 }}
           exit={{ y: "100%" }}
           transition={{ type: "spring", damping: 25 }}
-          className="w-full max-w-[calc(100vh*9/16)] bg-dark rounded-t-3xl p-4 max-h-[80vh] overflow-hidden flex flex-col"
+          className="w-full max-w-[calc(100vh*9/19.5)] bg-dark rounded-t-3xl p-4 max-h-[80vh] overflow-hidden flex flex-col"
         >
           <div className="flex justify-between items-center mb-4">
             <h3 className="font-bold text-lg text-white">{comments.length} Comments</h3>
@@ -97,7 +97,7 @@ export default function CommentsModal({ videoId, onClose }: CommentsModalProps) 
           </div>
           
           {/* Comment input */}
-          <div className="fixed bottom-0 left-0 right-0 p-4 bg-dark border-t border-darkGray max-w-[calc(100vh*9/16)] mx-auto">
+          <div className="fixed bottom-0 left-0 right-0 p-4 bg-dark border-t border-darkGray max-w-[calc(100vh*9/19.5)] mx-auto">
             <div className="flex space-x-3 items-center">
               <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0">
                 <img 
