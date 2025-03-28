@@ -47,14 +47,14 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
       <div className="absolute right-3 bottom-20 flex flex-col items-center space-y-4 z-10">
         {/* Profile */}
         <div className="flex flex-col items-center">
-          <div className="w-8 h-8 rounded-full border-2 border-white overflow-hidden mb-1 relative">
+          <div className="w-9 h-9 rounded-full border-2 border-white overflow-hidden mb-1 relative">
             <img 
               src={video.creatorProfilePic} 
               alt="Creator profile" 
               className="w-full h-full object-cover" 
             />
             <div className="absolute -bottom-1 right-0">
-              <FaPlus className="text-[0.5rem] bg-primary text-white p-0.5 rounded-full" />
+              <FaPlus className="text-[0.55rem] bg-primary text-white p-0.5 rounded-full" />
             </div>
           </div>
         </div>
