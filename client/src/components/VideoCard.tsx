@@ -44,17 +44,17 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
       </div>
       
       {/* Right side action buttons */}
-      <div className="absolute right-3 bottom-28 flex flex-col items-center space-y-6 z-10">
+      <div className="absolute right-3 bottom-20 flex flex-col items-center space-y-4 z-10">
         {/* Profile */}
         <div className="flex flex-col items-center">
-          <div className="w-12 h-12 rounded-full border-2 border-white overflow-hidden mb-1 relative">
+          <div className="w-8 h-8 rounded-full border-2 border-white overflow-hidden mb-1 relative">
             <img 
               src={video.creatorProfilePic} 
               alt="Creator profile" 
               className="w-full h-full object-cover" 
             />
             <div className="absolute -bottom-1 right-0">
-              <FaPlus className="text-xs bg-primary text-white p-1 rounded-full" />
+              <FaPlus className="text-[0.5rem] bg-primary text-white p-0.5 rounded-full" />
             </div>
           </div>
         </div>
@@ -66,9 +66,9 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
             onClick={handleLike}
             className="action-btn"
           >
-            <FaHeart className={`text-3xl ${liked ? 'text-primary' : 'text-white'}`} />
+            <FaHeart className={`text-2xl ${liked ? 'text-primary' : 'text-white'}`} />
           </motion.button>
-          <span className="text-xs mt-1 text-white">{liked ? video.likesCount + 1 : video.likesCount}</span>
+          <span className="text-[0.65rem] mt-0.5 text-white">{liked ? video.likesCount + 1 : video.likesCount}</span>
         </div>
         
         {/* Comments */}
@@ -78,9 +78,9 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
             onClick={onOpenComments}
             className="action-btn"
           >
-            <FaCommentDots className="text-3xl text-white" />
+            <FaCommentDots className="text-2xl text-white" />
           </motion.button>
-          <span className="text-xs mt-1 text-white">{video.commentsCount}</span>
+          <span className="text-[0.65rem] mt-0.5 text-white">{video.commentsCount}</span>
         </div>
         
         {/* Bookmark */}
@@ -90,9 +90,9 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
             onClick={handleBookmark}
             className="action-btn"
           >
-            <FaBookmark className={`text-3xl ${saved ? 'text-primary' : 'text-white'}`} />
+            <FaBookmark className={`text-2xl ${saved ? 'text-primary' : 'text-white'}`} />
           </motion.button>
-          <span className="text-xs mt-1 text-white">Save</span>
+          <span className="text-[0.65rem] mt-0.5 text-white">Save</span>
         </div>
         
         {/* Share */}
@@ -102,16 +102,16 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
             onClick={onOpenShare}
             className="action-btn"
           >
-            <FaShare className="text-3xl text-white" />
+            <FaShare className="text-2xl text-white" />
           </motion.button>
-          <span className="text-xs mt-1 text-white">Share</span>
+          <span className="text-[0.65rem] mt-0.5 text-white">Share</span>
         </div>
         
         {/* Sound */}
         <div className="flex flex-col items-center">
           <motion.button 
             whileTap={{ scale: 0.9 }}
-            className="action-btn relative w-12 h-12 rounded-full overflow-hidden border-2 border-white"
+            className="action-btn relative w-8 h-8 rounded-full overflow-hidden border-2 border-white"
           >
             <img 
               src={video.creatorProfilePic} 
@@ -119,7 +119,7 @@ export default function VideoCard({ video, active, onOpenComments, onOpenShare }
               className="w-full h-full object-cover" 
             />
           </motion.button>
-          <span className="text-xs mt-1 text-white">Sound</span>
+          <span className="text-[0.65rem] mt-0.5 text-white">Sound</span>
         </div>
       </div>
       
