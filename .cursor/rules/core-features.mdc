@@ -3,6 +3,10 @@ description:
 globs: 
 alwaysApply: true
 ---
+---
+description: Core features for the QuickNews MVP
+globs: 
+---
 
 # Core Features
 
@@ -83,9 +87,8 @@ Challenges: Implementing secure role-based authentication and authorization.
 ## 8. Performance and Scalability
 
 ### Technical Implementation:
-- Fast Loading Times: Optimize Firestore queries and use caching where possible. Compress videos before upload.
-- Cross-Platform Support: Test the app on both iOS and Android devices. Use Flutter's cross-platform capabilities to ensure consistency.
-- Scalable Backend: Use Firebase for its scalability. Monitor performance using Firebase Performance Monitoring.
+- Fast Loading Times: Optimize queries and use caching where possible. Compress videos before upload.
+- Cross-Platform Support: Test the app on both iOS and Android devices.
 
 Challenges: Balancing performance with feature richness.
 

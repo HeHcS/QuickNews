@@ -1,3 +1,5 @@
+import { StatusCodes } from 'http-status-codes';
+
 /**
  * Custom error response handler
  * @param {Error} err - Error object
@@ -9,8 +11,8 @@ export const errorHandler = (err, req, res, next) => {
   const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
   
   res.status(statusCode).json({
-    status: 'error',
+    success: false,
     message: err.message,
-    stack: process.env.NODE_ENV === 'production' ? null : err.stack
+    stack: process.env.NODE_ENV === 'production' ? '🥞' : err.stack
   });
 }; 

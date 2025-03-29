@@ -4,6 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
 import { errorHandler } from './middleware/errorMiddleware.js';
+import passport from './config/passport.js';
+import authRoutes from './routes/authRoutes.js';
 
 // Load environment variables
 dotenv.config();
@@ -18,6 +20,9 @@ const app = express();
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Initialize Passport
+app.use(passport.initialize());
 
 // Environment variables
 const PORT = process.env.PORT || 9000;
@@ -52,6 +57,9 @@ const connectDB = async () => {
     }
   }
 };
+
+// Routes
+app.use('/api/auth', authRoutes);
 
 // Base route
 app.get('/', (req, res) => {
@@ -93,6 +101,9 @@ app.use('*', (req, res, next) => {
 
 // Error handler middleware (must be after all routes)
 app.use(errorHandler);
+
+// Export app for testing
+export default app;
 
 // Start server function
 const startServer = () => {

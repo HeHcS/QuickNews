@@ -84,6 +84,7 @@ globs: **/*.js, **/*.ts, src/**/*.ts
 
 ## Best Practices
 - Follow Node.js best practices
+- Use import modules
 - Use proper async/await
 - Use module types
 - Implement proper error handling
