@@ -6,6 +6,10 @@ import mongoose from 'mongoose';
 import { errorHandler } from './middleware/errorMiddleware.js';
 import passport from './config/passport.js';
 import authRoutes from './routes/authRoutes.js';
+import videoRoutes from './routes/videoRoutes.js';
+import categoryRoutes from './routes/categoryRoutes.js';
+import { initRedis, closeRedis } from './utils/redisCache.js';
+import { ensureVideosDirExists } from './utils/videoStream.js';
 
 // Load environment variables
 dotenv.config();
@@ -60,6 +64,8 @@ const connectDB = async () => {
 
 // Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/videos', videoRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // Base route
 app.get('/', (req, res) => {
@@ -106,7 +112,13 @@ app.use(errorHandler);
 export default app;
 
 // Start server function
-const startServer = () => {
+const startServer = async () => {
+  // Ensure videos directory exists
+  ensureVideosDirExists();
+  
+  // Initialize Redis
+  await initRedis();
+  
   const server = app.listen(PORT, () => {
     console.log(`Server running on port ${PORT} in ${NODE_ENV} mode`);
     console.log(`MongoDB status: ${mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'}`);
@@ -114,10 +126,14 @@ const startServer = () => {
   });
 
   // Handle graceful shutdown
-  process.on('SIGTERM', () => {
+  process.on('SIGTERM', async () => {
     console.log('SIGTERM received. Shutting down gracefully');
     server.close(() => {
       console.log('HTTP server closed');
+      
+      // Close Redis connection
+      closeRedis().catch(err => console.error('Error closing Redis:', err));
+      
       if (mongoose.connection.readyState === 1) {
         mongoose.connection.close(false, () => {
           console.log('MongoDB connection closed');
@@ -134,11 +150,11 @@ const startServer = () => {
 
 // Connect to database then start server
 connectDB()
-  .then(connected => {
+  .then(async connected => {
     if (!connected && !TEST_MODE) {
       console.warn('Warning: Server starting without MongoDB connection. Some features may be unavailable.');
     }
-    startServer();
+    await startServer();
   })
   .catch(err => {
     console.error('Server initialization failed:', err);

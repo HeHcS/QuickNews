@@ -74,6 +74,17 @@ globs: **/*.js, **/*.ts, src/**/*.ts
 - Test error scenarios
 - Use proper test coverage
 
+### Use direct database testing for:
+- Unit tests of models and business logic
+- Performance-critical operations
+- Data integrity verification
+
+### Use API testing for:
+- Integration tests across system components
+- Contract verification
+- Client integration scenarios
+- Security and HTTP-specific features
+
 ## Deployment
 - Use proper Docker setup
 - Implement proper CI/CD

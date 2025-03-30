@@ -8,6 +8,8 @@ description: Core features for the QuickNews MVP
 globs: 
 ---
 
+QuickNews is a short-form video content app similar in functionality to TikTok and Instagram Reels.
+
 # Core Features
 
 ## 1. User Authentication

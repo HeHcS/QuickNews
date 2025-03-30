@@ -48,4 +48,14 @@ export const authorize = (...roles) => {
     
     next();
   };
+};
+
+// Admin middleware - restricts access to admin users only
+export const admin = (req, res, next) => {
+  return authorize('admin')(req, res, next);
+};
+
+// Creator middleware - restricts access to creators and admins
+export const creator = (req, res, next) => {
+  return authorize('creator', 'admin')(req, res, next);
 }; 
