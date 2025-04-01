@@ -8,8 +8,10 @@ import passport from './config/passport.js';
 import authRoutes from './routes/authRoutes.js';
 import videoRoutes from './routes/videoRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
+import profileRoutes from './routes/profileRoutes.js';
 import { initRedis, closeRedis } from './utils/redisCache.js';
 import { ensureVideosDirExists } from './utils/videoStream.js';
+import { ensureProfilesDirExists } from './utils/fileSystem.js';
 
 // Load environment variables
 dotenv.config();
@@ -62,10 +64,14 @@ const connectDB = async () => {
   }
 };
 
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/profile', profileRoutes);
 
 // Base route
 app.get('/', (req, res) => {
@@ -113,8 +119,9 @@ export default app;
 
 // Start server function
 const startServer = async () => {
-  // Ensure videos directory exists
+  // Ensure required directories exist
   ensureVideosDirExists();
+  ensureProfilesDirExists();
   
   // Initialize Redis
   await initRedis();

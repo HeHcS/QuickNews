@@ -26,6 +26,31 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'default-profile.png'
   },
+  bio: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Bio cannot be more than 500 characters']
+  },
+  website: {
+    type: String,
+    trim: true
+  },
+  location: {
+    type: String,
+    trim: true
+  },
+  phone: {
+    type: String,
+    trim: true
+  },
+  socialLinks: {
+    instagram: String,
+    twitter: String,
+    youtube: String,
+    tiktok: String,
+    linkedin: String,
+    facebook: String
+  },
   role: {
     type: String,
     enum: ['user', 'creator', 'admin'],
@@ -34,6 +59,47 @@ const userSchema = new mongoose.Schema({
   isVerified: {
     type: Boolean,
     default: false
+  },
+  // Creator-specific fields
+  creatorProfile: {
+    isApproved: {
+      type: Boolean,
+      default: false
+    },
+    category: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Category'
+    },
+    badges: [{
+      type: String,
+      enum: ['verified', 'trending', 'top-creator', 'rising-star']
+    }],
+    specialization: [String],
+    applicationDate: Date,
+    approvalDate: Date,
+    rejectionReason: String,
+    featured: {
+      type: Boolean,
+      default: false
+    }
+  },
+  stats: {
+    followers: {
+      type: Number,
+      default: 0
+    },
+    following: {
+      type: Number,
+      default: 0
+    },
+    totalViews: {
+      type: Number,
+      default: 0
+    },
+    totalLikes: {
+      type: Number,
+      default: 0
+    }
   },
   googleId: String,
   appleId: String,

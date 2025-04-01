@@ -50,6 +50,11 @@ export const authorize = (...roles) => {
   };
 };
 
+// Alias for authorize with a different name for compatibility
+export const restrictTo = (...roles) => {
+  return authorize(...roles);
+};
+
 // Admin middleware - restricts access to admin users only
 export const admin = (req, res, next) => {
   return authorize('admin')(req, res, next);

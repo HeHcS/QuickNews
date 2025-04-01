@@ -11,7 +11,8 @@
     "test:api": "node tests/testVideoAPI.js",
     "test:setup": "node tests/videoApiBasicTest.js",
     "seed": "node utils/initDb.js",
-    "seed:videos": "node tests/manualTestVideos.js"
+    "seed:videos": "node tests/manualTestVideos.js",
+    "test:profiles": "node tests/setupTestUsers.js && node tests/profileApiTest.js"
   },
   "keywords": [
     "express",
@@ -47,6 +48,7 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
+    "form-data": "^4.0.2",
     "mongodb-memory-server": "^8.12.2",
     "nodemon": "^3.0.2",
     "supertest": "^6.3.3"

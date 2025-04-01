@@ -60,4 +60,27 @@ globs:
 - Make small, focused commits
 - Use meaningful branch names 
 
+## Fundamental Principles
+- Write clean, simple, readable code
+- Implement features in the simplest possible way
+- Keep files small and focused
+- Test after every meaningful change
+- Focus on core functionality before optimization
+- Use clear, consistent naming
+- Think thoroughly before coding. Write 2-3 reasoning paragraphs.
+- ALWAYS write simple, clean and modular code
+- Use clear and easy-to-understand language. Write in short sentences.
+
+## Error Fixing
+- DO NOT JUMP TO CONCLUSIONS! Consider multiple possible causes before deciding
+- Explain the problem in plain English
+- Make minimal necessary changes, changing as few lines of code as possible
+- In case of strange errors, ask the user to perform a Perplexity web search to find the latest up-to-date information
+
+## Building Process
+- Verify each new feature works by telling the user how to test it
+- DO NOT write complicated and confusing code. Opt for the simple & modular approach.
+- When not sure what to do, tell the user to perform a web search
+
+
 
