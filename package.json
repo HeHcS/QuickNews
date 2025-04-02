@@ -12,7 +12,10 @@
     "test:setup": "node tests/videoApiBasicTest.js",
     "seed": "node utils/initDb.js",
     "seed:videos": "node tests/manualTestVideos.js",
-    "test:profiles": "node tests/setupTestUsers.js && node tests/profileApiTest.js"
+    "test:profiles": "node tests/setupTestUsers.js && node tests/profileApiTest.js",
+    "test:engagement": "node tests/testEngagementFeatures.js",
+    "test:socket": "node tests/socketClientTest.js",
+    "test:concurrency": "node tests/concurrencyTest.js"
   },
   "keywords": [
     "express",
@@ -45,6 +48,7 @@
     "passport-jwt": "^4.0.1",
     "redis": "^4.6.13",
     "socket.io": "^4.7.2",
+    "socket.io-client": "^4.8.1",
     "uuid": "^9.0.1"
   },
   "devDependencies": {

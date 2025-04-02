@@ -17,6 +17,7 @@ import {
   validateForgotPassword, 
   validateResetPassword 
 } from '../middleware/validationMiddleware.js';
+import User from '../models/userModel.js';
 
 const router = express.Router();
 
@@ -58,5 +59,19 @@ router.get(
 );
 
 // Note: Apple OAuth would follow a similar pattern as Google OAuth
+
+// Add this route somewhere in the file
+router.get('/test-users', async (req, res, next) => {
+  try {
+    // In a production app, this would be protected. 
+    // For testing purposes only.
+    const users = await User.find({ email: /^test.*@example\.com$/ })
+      .select('_id name email');
+    
+    res.json({ users });
+  } catch (error) {
+    next(error);
+  }
+});
 
 export default router; 

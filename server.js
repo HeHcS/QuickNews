@@ -3,12 +3,15 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
+import { Server } from 'socket.io';
 import { errorHandler } from './middleware/errorMiddleware.js';
 import passport from './config/passport.js';
+import socketAuthMiddleware from './middleware/socketAuthMiddleware.js';
 import authRoutes from './routes/authRoutes.js';
 import videoRoutes from './routes/videoRoutes.js';
 import categoryRoutes from './routes/categoryRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
+import engagementRoutes from './routes/engagementRoutes.js';
 import { initRedis, closeRedis } from './utils/redisCache.js';
 import { ensureVideosDirExists } from './utils/videoStream.js';
 import { ensureProfilesDirExists } from './utils/fileSystem.js';
@@ -22,6 +25,9 @@ const __dirname = path.dirname(__filename);
 
 // Initialize app
 const app = express();
+
+// Create global io variable for Socket.IO
+let io;
 
 // Middleware
 app.use(express.json());
@@ -67,11 +73,18 @@ const connectDB = async () => {
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
+// Socket.IO middleware
+const attachSocketIO = (req, res, next) => {
+  req.io = io;
+  next();
+};
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/engagement', attachSocketIO, engagementRoutes);
 
 // Base route
 app.get('/', (req, res) => {
@@ -130,6 +143,29 @@ const startServer = async () => {
     console.log(`Server running on port ${PORT} in ${NODE_ENV} mode`);
     console.log(`MongoDB status: ${mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'}`);
     console.log(`Test mode: ${TEST_MODE ? 'enabled' : 'disabled'}`);
+  });
+
+  // Initialize Socket.IO
+  io = new Server(server, {
+    cors: {
+      origin: process.env.CLIENT_URL || 'http://localhost:3000',
+      methods: ['GET', 'POST']
+    }
+  });
+
+  // Use Socket.IO authentication middleware
+  io.use(socketAuthMiddleware);
+
+  // Socket.IO connection handling
+  io.on('connection', (socket) => {
+    console.log('Client connected:', socket.id);
+    console.log('Authenticated user:', socket.user.name);
+
+    // Handle socket events here
+    
+    socket.on('disconnect', () => {
+      console.log('Client disconnected:', socket.id);
+    });
   });
 
   // Handle graceful shutdown
