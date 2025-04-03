@@ -10,6 +10,8 @@
     "test": "node tests/mongoDbDirectTest.js",
     "test:api": "node tests/testVideoAPI.js",
     "test:setup": "node tests/videoApiBasicTest.js",
+    "test:upload": "node tests/testVideoUpload.js",
+    "setup:user": "node tests/setupTestUser.js",
     "seed": "node utils/initDb.js",
     "seed:videos": "node tests/manualTestVideos.js",
     "test:profiles": "node tests/setupTestUsers.js && node tests/profileApiTest.js",
