@@ -4,6 +4,8 @@ import Bookmark from '../models/bookmarkModel.js';
 import mongoose from 'mongoose';
 import { streamVideo } from '../utils/videoStream.js';
 import { getCache, setCache, deleteCache, clearCacheByPattern } from '../utils/redisCache.js';
+import { catchAsync } from '../utils/catchAsync.js';
+import AppError from '../utils/appError.js';
 
 // Cache keys
 const CACHE_KEYS = {
@@ -547,4 +549,82 @@ export const getBookmarkCollections = async (req, res) => {
     console.error('Error fetching bookmark collections:', error);
     res.status(500).json({ message: 'Error fetching bookmark collections', error: error.message });
   }
-}; 
+};
+
+// Upload video
+export const uploadVideo = catchAsync(async (req, res, next) => {
+  if (!req.file) {
+    return next(new AppError('No video file uploaded', 400));
+  }
+
+  const videoData = {
+    title: req.body.title,
+    description: req.body.description,
+    creator: req.user._id, // Assuming user is attached by auth middleware
+    videoFile: req.file.path,
+    categories: req.body.categories ? JSON.parse(req.body.categories) : [],
+    tags: req.body.tags ? JSON.parse(req.body.tags) : [],
+    isPublished: req.body.isPublished === 'false' ? false : true,
+    allowComments: req.body.allowComments === 'false' ? false : true
+  };
+
+  const video = await Video.create(videoData);
+
+  res.status(201).json({
+    status: 'success',
+    data: {
+      video
+    }
+  });
+});
+
+// Get all videos with pagination
+export const getAllVideos = catchAsync(async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = parseInt(req.query.limit) || 10;
+  const skip = (page - 1) * limit;
+
+  const videos = await Video.find({ isPublished: true })
+    .populate('creator', 'name avatar')
+    .populate('categories', 'name')
+    .sort('-createdAt')
+    .skip(skip)
+    .limit(limit);
+
+  const total = await Video.countDocuments({ isPublished: true });
+
+  res.status(200).json({
+    status: 'success',
+    results: videos.length,
+    data: {
+      videos,
+      pagination: {
+        currentPage: page,
+        totalPages: Math.ceil(total / limit),
+        totalVideos: total
+      }
+    }
+  });
+});
+
+// Get single video
+export const getVideo = catchAsync(async (req, res, next) => {
+  const video = await Video.findById(req.params.id)
+    .populate('creator', 'name avatar')
+    .populate('categories', 'name');
+
+  if (!video) {
+    return next(new AppError('No video found with that ID', 404));
+  }
+
+  // Increment views
+  video.views += 1;
+  await video.save();
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      video
+    }
+  });
+}); 
