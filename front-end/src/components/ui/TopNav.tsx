@@ -31,8 +31,8 @@ export default function TopNav() {
   return (
     <div className="absolute top-12 left-0 right-0 z-20">
       {/* Navigation Container */}
-      <div className="relative px-1">
-        <div className="flex space-x-1 overflow-x-auto scrollbar-hide justify-center">
+      <div className="relative w-full">
+        <div className="flex space-x-2 overflow-x-auto scrollbar-hide justify-between items-center px-[15px]">
           {categories.map((category) => (
             <button
               key={category.name}
