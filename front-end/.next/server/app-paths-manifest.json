@@ -1,7 +1,0 @@
-{
-  "/business/page": "app/business/page.js",
-  "/politics/page": "app/politics/page.js",
-  "/following/page": "app/following/page.js",
-  "/tech/page": "app/tech/page.js",
-  "/foryou/page": "app/foryou/page.js"
-}
