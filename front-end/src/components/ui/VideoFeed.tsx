@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 import TopNav from './TopNav';
 import BottomNav from './BottomNav';
+import Comments from './Comments';
 import { usePathname, useRouter } from 'next/navigation';
-import CommentSection from './CommentSection';
 
 interface Video {
   id: string;
@@ -31,6 +31,10 @@ interface Video {
 interface VideoPostProps {
   video: Video;
   isActive: boolean;
+  isCommentsOpen: boolean;
+  onCommentsOpenChange: (isOpen: boolean) => void;
+  isArticleOpen: boolean;
+  onArticleOpenChange: (isOpen: boolean) => void;
 }
 
 const sampleComments: { [key: string]: Array<{
@@ -40,7 +44,7 @@ const sampleComments: { [key: string]: Array<{
   likes: number;
   timestamp: string;
 }> } = {
-  '1': [
+  'foryou-1': [
     {
       id: '1',
       user: {
@@ -60,39 +64,9 @@ const sampleComments: { [key: string]: Array<{
       text: 'The lighting in this shot is perfect 👏 What camera setup did you use?',
       likes: 324,
       timestamp: '1h ago',
-    },
-    {
-      id: '3',
-      user: {
-        name: 'Emma Watson',
-        avatar: 'https://picsum.photos/seed/emma/100/100',
-      },
-      text: '0:45 is literally the best part! Had to watch it multiple times 😍',
-      likes: 567,
-      timestamp: '45m ago',
-    },
-    {
-      id: '4',
-      user: {
-        name: 'David Kim',
-        avatar: 'https://picsum.photos/seed/david/100/100',
-      },
-      text: 'Been following your work for months, and you keep getting better! Any tips for aspiring creators?',
-      likes: 231,
-      timestamp: '20m ago',
-    },
-    {
-      id: '5',
-      user: {
-        name: 'Sarah Johnson',
-        avatar: 'https://picsum.photos/seed/sarah/100/100',
-      },
-      text: '🎵 Does anyone know the background music? It\'s so good!',
-      likes: 142,
-      timestamp: '5m ago',
     }
   ],
-  '2': [
+  'foryou-2': [
     {
       id: '1',
       user: {
@@ -112,9 +86,45 @@ const sampleComments: { [key: string]: Array<{
       text: 'The way you transition between scenes is so smooth ✨ Need a tutorial on this!',
       likes: 267,
       timestamp: '45m ago',
+    }
+  ],
+  'foryou-3': [
+    {
+      id: '1',
+      user: {
+        name: 'Emma Watson',
+        avatar: 'https://picsum.photos/seed/emma/100/100',
+      },
+      text: '0:45 is literally the best part! Had to watch it multiple times 😍',
+      likes: 567,
+      timestamp: '45m ago',
     },
     {
-      id: '3',
+      id: '2',
+      user: {
+        name: 'David Kim',
+        avatar: 'https://picsum.photos/seed/david/100/100',
+      },
+      text: 'Been following your work for months, and you keep getting better! Any tips for aspiring creators?',
+      likes: 231,
+      timestamp: '20m ago',
+    }
+  ],
+  'breaking-1': [
+    {
+      id: '1',
+      user: {
+        name: 'Sarah Johnson',
+        avatar: 'https://picsum.photos/seed/sarah/100/100',
+      },
+      text: '🎵 Does anyone know the background music? It\'s so good!',
+      likes: 142,
+      timestamp: '5m ago',
+    }
+  ],
+  'following-1': [
+    {
+      id: '1',
       user: {
         name: 'James Wilson',
         avatar: 'https://picsum.photos/seed/james/100/100',
@@ -124,7 +134,42 @@ const sampleComments: { [key: string]: Array<{
       timestamp: '30m ago',
     }
   ],
-  // Add more comments for other videos...
+  'politics-1': [
+    {
+      id: '1',
+      user: {
+        name: 'Lisa Chen',
+        avatar: 'https://picsum.photos/seed/lisa/100/100',
+      },
+      text: 'Important update! Thanks for keeping us informed 📰',
+      likes: 234,
+      timestamp: '1h ago',
+    }
+  ],
+  'tech-1': [
+    {
+      id: '1',
+      user: {
+        name: 'Alex Rivera',
+        avatar: 'https://picsum.photos/seed/alex/100/100',
+      },
+      text: 'The future of tech is looking bright! 🚀',
+      likes: 345,
+      timestamp: '2h ago',
+    }
+  ],
+  'business-1': [
+    {
+      id: '1',
+      user: {
+        name: 'Mark Thompson',
+        avatar: 'https://picsum.photos/seed/mark/100/100',
+      },
+      text: 'Great insights on market trends! 📈',
+      likes: 278,
+      timestamp: '1h ago',
+    }
+  ]
 };
 
 const generateVideoContent = (url: string) => {
@@ -160,15 +205,105 @@ const generateVideoContent = (url: string) => {
   };
 };
 
-function VideoPost({ video, isActive }: VideoPostProps) {
+// Add ArticlePopup component
+function ArticlePopup({ isOpen, onClose, title, content }: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  title: string; 
+  content: string; 
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+      <div className="relative w-[375px] h-[700px] bg-[#0A0A0A] text-white overflow-y-auto scrollbar-hide">
+        {/* Back button - stays fixed */}
+        <button 
+          onClick={onClose}
+          className="fixed top-4 left-[calc(50%-375px/2+16px)] z-50 flex items-center text-white/90 hover:text-white"
+        >
+          <span className="text-lg mr-2">←</span>
+          <span className="text-sm">Back</span>
+        </button>
+
+        <div className="px-4 pt-16">
+          {/* Title */}
+          <h1 className="text-[28px] font-bold leading-tight mb-4">NATO on High Alert: Chief Warns of WWIII Risk as Putin's Threats Escalate</h1>
+
+          {/* Source and date */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <img
+                src="https://picsum.photos/seed/dailymail/32/32"
+                alt="Daily Mail"
+                className="w-8 h-8 rounded-full"
+              />
+              <div className="flex flex-col justify-center">
+                <span className="text-xs text-white/70">Daily Mail</span>
+                <span className="text-[11px] text-white/50">@dailymail</span>
+              </div>
+            </div>
+            <div className="flex flex-col items-end">
+              <span className="text-xs text-[#FFB800]">Published on</span>
+              <span className="text-xs text-[#FFB800]">12 November 2024</span>
+            </div>
+          </div>
+
+          {/* Featured Image */}
+          <div className="w-full aspect-video bg-blue-600 mb-4">
+            <img
+              src="https://picsum.photos/seed/nato/800/450"
+              alt="NATO Meeting"
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          {/* Content */}
+          <div className="space-y-6 pb-4">
+            {/* NATO's Unprecedented Warning */}
+            <section>
+              <h2 className="text-[22px] font-bold mb-2">NATO's Unprecedented Warning</h2>
+              <p className="text-[13px] leading-relaxed text-white/80">
+                NATO leadership has issued a grave warning to its member states, calling for immediate preparation for potential "wartime scenarios". This extraordinary alert comes as a direct response to heightened international tensions and concerning rhetoric about World War III.
+              </p>
+            </section>
+
+            {/* Strategic Military Readiness */}
+            <section>
+              <h2 className="text-[22px] font-bold mb-2">Strategic Military Readiness</h2>
+              <p className="text-[13px] leading-relaxed text-white/80">
+                The alliance is intensifying its preparedness protocols, emphasizing the need for member nations to strengthen their defensive capabilities. This strategic shift reflects the organization's assessment of current global security risks and potential conflict scenarios.
+              </p>
+            </section>
+
+            {/* Geopolitical Context */}
+            <section>
+              <h2 className="text-[22px] font-bold mb-2">Geopolitical Context</h2>
+              <p className="text-[13px] leading-relaxed text-white/80">
+                Putin's Escalating Rhetoric Recent statements from Russia have contributed to the mounting tension, prompting NATO to take these unprecedented measures. The situation marks a critical point in international relations, with military readiness becoming increasingly paramount.
+              </p>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isArticleOpen, onArticleOpenChange }: VideoPostProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
-  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
   const [isCaptionsExpanded, setIsCaptionsExpanded] = useState(false);
   const { ref, inView } = useInView({
     threshold: 0.7,
   });
+
+  // Reset states when video changes or becomes inactive
+  useEffect(() => {
+    setIsLiked(false);
+    setIsCaptionsExpanded(false);
+  }, [video.id, isActive]);
 
   // Generate content based on video URL
   const videoContent = generateVideoContent(video.url);
@@ -191,7 +326,9 @@ function VideoPost({ video, isActive }: VideoPostProps) {
     }
   }, [isActive, inView]);
 
-  const togglePlay = () => {
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
     const video = videoRef.current;
     if (!video) return;
 
@@ -213,14 +350,18 @@ function VideoPost({ video, isActive }: VideoPostProps) {
       {/* Video Layer */}
       <div 
         className="absolute inset-0 cursor-pointer" 
-        onClick={togglePlay}
+        onClick={(e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          togglePlay(e);
+        }}
       >
-      <video
-        ref={videoRef}
-        src={video.url}
-        loop
-        playsInline
-        className="absolute inset-0 w-full h-full object-cover"
+        <video
+          ref={videoRef}
+          src={video.url}
+          loop
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover"
         />
         {/* Bottom Gradient Overlay */}
         <div 
@@ -246,7 +387,11 @@ function VideoPost({ video, isActive }: VideoPostProps) {
             {videoContent.text.length > 150 && (
               <div className="relative mt-1 bg-transparent">
                 <button 
-                  onClick={() => setIsCaptionsExpanded(!isCaptionsExpanded)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setIsCaptionsExpanded(!isCaptionsExpanded);
+                  }}
                   className="text-blue-400 text-xs font-medium hover:text-blue-300 transition-all duration-500 ease-in-out"
                 >
                   {isCaptionsExpanded ? 'Show less' : 'Read more'}
@@ -259,69 +404,89 @@ function VideoPost({ video, isActive }: VideoPostProps) {
         <div className="absolute bottom-[70px] left-0 right-0 p-2.5 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-          <img
-            src={video.creator.avatar || '/default-avatar.png'}
-            alt={video.creator.name}
+              <img
+                src={video.creator.avatar || '/default-avatar.png'}
+                alt={video.creator.name}
                 className="w-10 h-10 rounded-full border border-white/20"
               />
               <div>
                 <h3 className="font-semibold text-sm leading-tight">{video.creator.name}</h3>
                 <h4 className="text-white/70 text-[10px] leading-tight">@{video.creator.name.toLowerCase().replace(/\s+/g, '')}</h4>
               </div>
-              <button className="pointer-events-auto px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full hover:bg-blue-600 transition-colors">
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  e.preventDefault();
+                }}
+                className="pointer-events-auto px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full hover:bg-blue-600 transition-colors"
+              >
                 Subscribe
               </button>
             </div>
-            <button className="pointer-events-auto px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full hover:bg-blue-600 transition-colors">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onArticleOpenChange(true);
+              }}
+              className="pointer-events-auto px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full hover:bg-blue-600 transition-colors"
+            >
               Full Article
             </button>
           </div>
-      </div>
+        </div>
 
-      {/* Interaction Buttons */}
-        <div className="absolute right-2 bottom-[160px] flex flex-col items-center space-y-4">
-        <button 
-            className="group flex flex-col items-center pointer-events-auto"
-          onClick={() => setIsLiked(!isLiked)}
-        >
-            <div className="w-11 h-11 flex items-center justify-center rounded-full bg-black/40 text-white mb-1">
-              <span className="text-2xl">{isLiked ? '💙' : '🤍'}</span>
+        {/* Engagement Buttons */}
+        <div className="absolute bottom-[160px] right-4 flex flex-col space-y-4 pointer-events-auto">
+          <div className="flex flex-col items-center">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setIsLiked(!isLiked);
+              }}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            >
+              {isLiked ? '❤️' : '🤍'}
+            </button>
+            <span className="text-white text-xs mt-1">{isLiked ? video.likes + 1 : video.likes}</span>
           </div>
-            <span className="text-white text-xs font-medium">{video.likes + (isLiked ? 1 : 0)}</span>
-        </button>
-          <button 
-            className="group flex flex-col items-center pointer-events-auto"
-            onClick={() => setIsCommentsOpen(true)}
-          >
-            <div className="w-11 h-11 flex items-center justify-center rounded-full bg-black/40 text-white mb-1">
-              <span className="text-2xl">💬</span>
+          <div className="flex flex-col items-center">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onCommentsOpenChange(!isCommentsOpen);
+              }}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            >
+              💬
+            </button>
+            <span className="text-white text-xs mt-1">{video.comments}</span>
           </div>
-            <span className="text-white text-xs font-medium">{video.comments}</span>
-        </button>
-          <button className="group flex flex-col items-center pointer-events-auto">
-            <div className="w-11 h-11 flex items-center justify-center rounded-full bg-black/40 text-white mb-1">
-              <span className="text-2xl">⏩</span>
-          </div>
-            <span className="text-white text-xs font-medium">Share</span>
-        </button>
-      </div>
-
-      {/* Play/Pause Indicator */}
-      {!isPlaying && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-12 h-12 flex items-center justify-center rounded-full bg-black/40 text-white">
-            <span className="text-2xl">▶️</span>
+          <div className="flex flex-col items-center">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            >
+              🔗
+            </button>
+            <span className="text-white text-xs mt-1">Share</span>
           </div>
         </div>
-      )}
-      </div>
 
-      {/* Comments Section */}
-      <CommentSection
-        isOpen={isCommentsOpen}
-        onClose={() => setIsCommentsOpen(false)}
-        comments={sampleComments[video.id] || []}
-      />
+        {/* Play/Pause Indicator */}
+        {!isPlaying && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-12 h-12 flex items-center justify-center rounded-full bg-black/40 text-white">
+              <span className="text-2xl">▶️</span>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -329,7 +494,7 @@ function VideoPost({ video, isActive }: VideoPostProps) {
 const sampleVideos: { [key: string]: Video[] } = {
   Breaking: [
     {
-      id: '1',
+      id: 'breaking-1',
       url: '/VidAssets/bbcnewsvideo1.mp4',
       title: 'Breaking: Latest News Update 📰',
       creator: {
@@ -342,7 +507,7 @@ const sampleVideos: { [key: string]: Video[] } = {
   ],
   Following: [
     {
-      id: '2',
+      id: 'following-1',
       url: '/VidAssets/dylanpagevideo1.mp4',
       title: 'From Your Favorite Creator 🌟',
       creator: {
@@ -355,7 +520,7 @@ const sampleVideos: { [key: string]: Video[] } = {
   ],
   'For You': [
   {
-    id: '1',
+      id: 'foryou-1',
       url: '/VidAssets/dailymailvideo1.mp4',
       title: 'Daily Mail Latest 📰',
     creator: {
@@ -366,7 +531,7 @@ const sampleVideos: { [key: string]: Video[] } = {
       comments: 89
   },
   {
-    id: '2',
+      id: 'foryou-2',
       url: '/VidAssets/dylanpagevideo2.mp4',
       title: 'Dylan Page Latest 🎬',
     creator: {
@@ -377,7 +542,7 @@ const sampleVideos: { [key: string]: Video[] } = {
       comments: 156
   },
   {
-    id: '3',
+      id: 'foryou-3',
       url: '/VidAssets/dailymailvideo2.mp4',
       title: 'Daily Mail Update 📽️',
     creator: {
@@ -390,7 +555,7 @@ const sampleVideos: { [key: string]: Video[] } = {
   ],
   Politics: [
     {
-      id: '3',
+      id: 'politics-1',
       url: '/VidAssets/bbcnewsvideo1.mp4',
       title: 'Latest Political Update 🏛️',
       creator: {
@@ -403,7 +568,7 @@ const sampleVideos: { [key: string]: Video[] } = {
   ],
   Tech: [
   {
-    id: '4',
+      id: 'tech-1',
       url: '/VidAssets/dylanpagevideo1.mp4',
       title: 'Latest Tech Innovation 💻',
     creator: {
@@ -416,7 +581,7 @@ const sampleVideos: { [key: string]: Video[] } = {
   ],
   Business: [
   {
-    id: '5',
+      id: 'business-1',
       url: '/VidAssets/dailymailvideo2.mp4',
       title: 'Business Insights 📈',
     creator: {
@@ -434,6 +599,8 @@ export default function VideoFeed() {
   const [touchStart, setTouchStart] = useState<number | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
+  const [hasOpenComments, setHasOpenComments] = useState(false);
+  const [hasOpenArticle, setHasOpenArticle] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   
@@ -441,40 +608,50 @@ export default function VideoFeed() {
   const categories = ['Breaking', 'Politics', 'For You', 'Tech', 'Business', 'Following'];
   
   // Determine current category based on pathname
-  const currentCategory = pathname === '/' ? 'For You' : 
+  const currentCategory = pathname === '/' || pathname === '/foryou' ? 'For You' : 
     pathname.slice(1).charAt(0).toUpperCase() + pathname.slice(2);
 
   const videos = sampleVideos[currentCategory] || sampleVideos['For You'];
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (hasOpenComments || hasOpenArticle) return; // Prevent scrolling when comments or article are open
     const element = e.currentTarget;
     const newIndex = Math.round(element.scrollTop / element.clientHeight);
-    setActiveVideoIndex(newIndex);
+    if (newIndex !== activeVideoIndex) {
+      setActiveVideoIndex(newIndex);
+    }
   };
 
   const handleCategoryChange = (newIndex: number) => {
+    if (hasOpenComments || hasOpenArticle) return; // Prevent category change if comments or article are open
+    
     const currentIndex = categories.indexOf(currentCategory);
     
     if (newIndex !== currentIndex) {
       const newCategory = categories[newIndex];
-      const newPath = newCategory === 'For You' ? '/' : `/${newCategory.toLowerCase()}`;
-      router.push(newPath);
+      // Special handling for For You page
+      if (newCategory === 'For You') {
+        router.push('/foryou');
+      } else {
+        router.push(`/${newCategory.toLowerCase()}`);
+      }
     }
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    if (hasOpenComments || hasOpenArticle) return; // Prevent touch start if comments or article are open
     setTouchStart(e.touches[0].clientX);
     setIsDragging(true);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging) return;
+    if (!isDragging || hasOpenComments || hasOpenArticle) return;
     const currentX = e.touches[0].clientX;
     setDragOffset(currentX - (touchStart || 0));
   };
 
   const handleTouchEnd = () => {
-    if (!isDragging) return;
+    if (!isDragging || hasOpenComments || hasOpenArticle) return;
 
     const threshold = 50; // Minimum distance to trigger category change
     const currentIndex = categories.indexOf(currentCategory);
@@ -499,18 +676,19 @@ export default function VideoFeed() {
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
+    if (hasOpenComments || hasOpenArticle) return; // Prevent mouse down if comments or article are open
     setTouchStart(e.clientX);
     setIsDragging(true);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
+    if (!isDragging || hasOpenComments || hasOpenArticle) return;
     const currentX = e.clientX;
     setDragOffset(currentX - (touchStart || 0));
   };
 
   const handleMouseUp = () => {
-    if (!isDragging) return;
+    if (!isDragging || hasOpenComments || hasOpenArticle) return;
 
     const threshold = 50; // Minimum distance to trigger category change
     const currentIndex = categories.indexOf(currentCategory);
@@ -549,12 +727,13 @@ export default function VideoFeed() {
       
       {/* Video Feed */}
       <div 
-        className="absolute inset-0 overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
+        className={`absolute inset-0 overflow-y-scroll snap-y snap-mandatory scrollbar-hide`}
         onScroll={handleScroll}
         style={{
           transform: isDragging ? `translateX(${dragOffset}px)` : 'none',
           transition: isDragging ? 'none' : 'transform 0.3s ease-out',
-          cursor: isDragging ? 'grabbing' : 'default'
+          cursor: isDragging ? 'grabbing' : 'default',
+          pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto'
         }}
       >
         {videos.map((video, index) => (
@@ -562,14 +741,37 @@ export default function VideoFeed() {
             key={video.id}
             video={video}
             isActive={index === activeVideoIndex}
+            isCommentsOpen={hasOpenComments}
+            onCommentsOpenChange={setHasOpenComments}
+            isArticleOpen={hasOpenArticle}
+            onArticleOpenChange={setHasOpenArticle}
           />
         ))}
       </div>
 
-      {/* Ensure BottomNav stays on top */}
-      <div className="relative z-30">
-      <BottomNav />
+      {/* Bottom Navigation */}
+      <div style={{ pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto' }}>
+        <BottomNav />
       </div>
+
+      {/* Comments Component */}
+      {videos[activeVideoIndex] && (
+        <Comments 
+          isOpen={hasOpenComments}
+          onClose={() => setHasOpenComments(false)}
+          comments={sampleComments[videos[activeVideoIndex].id] || []}
+        />
+      )}
+
+      {/* Article Popup */}
+      {videos[activeVideoIndex] && (
+        <ArticlePopup 
+          isOpen={hasOpenArticle}
+          onClose={() => setHasOpenArticle(false)}
+          title={generateVideoContent(videos[activeVideoIndex].url).title}
+          content={generateVideoContent(videos[activeVideoIndex].url).text}
+        />
+      )}
     </div>
   );
 } 
