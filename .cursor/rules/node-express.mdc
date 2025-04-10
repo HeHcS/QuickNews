@@ -1,4 +1,9 @@
 ---
+description: 
+globs: 
+alwaysApply: false
+---
+---
 description: Node.js and Express.js best practices for backend development
 globs: 
 alwaysApply: false
@@ -73,6 +78,7 @@ globs: **/*.js, **/*.ts, src/**/*.ts
 - Implement proper mocking
 - Test error scenarios
 - Use proper test coverage
+- Terminate server processes started in the terminal before ending a session
 
 ### Use direct database testing for:
 - Unit tests of models and business logic
