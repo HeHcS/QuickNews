@@ -45,7 +45,7 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
       }}
     >
       <div 
-        className={`w-full max-w-[430px] h-[90vh] bg-black rounded-t-2xl transform transition-all duration-300 ease-out ${
+        className={`w-full max-w-[375px] h-[70vh] bg-black rounded-t-2xl transform transition-all duration-300 ease-out flex flex-col ${
           isOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
         onClick={(e) => e.stopPropagation()}
@@ -80,10 +80,10 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-sm">{comment.user.name}</span>
+                  <span className="font-semibold text-sm text-white">{comment.user.name}</span>
                   <span className="text-white/50 text-xs">{comment.timestamp}</span>
                 </div>
-                <p className="text-sm mt-1">{comment.text}</p>
+                <p className="text-sm mt-1 text-white">{comment.text}</p>
                 <div className="flex items-center gap-4 mt-2">
                   <button className="flex items-center gap-1 text-white/70 hover:text-white text-xs">
                     <span>❤️</span>
@@ -96,8 +96,8 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
           ))}
         </div>
 
-        {/* Comment Input */}
-        <div className="p-3 border-t border-gray-800 bg-black/50 backdrop-blur-sm">
+        {/* Comment Input - Now sticky at the bottom */}
+        <div className="sticky bottom-0 p-3 border-t border-gray-800 bg-black/50 backdrop-blur-sm">
           <div className="flex gap-2">
             <input 
               type="text" 

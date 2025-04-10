@@ -33,6 +33,8 @@ interface VideoPostProps {
   isActive: boolean;
   isCommentsOpen: boolean;
   onCommentsOpenChange: (isOpen: boolean) => void;
+  isArticleOpen: boolean;
+  onArticleOpenChange: (isOpen: boolean) => void;
 }
 
 const sampleComments: { [key: string]: Array<{
@@ -203,7 +205,92 @@ const generateVideoContent = (url: string) => {
   };
 };
 
-function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange }: VideoPostProps) {
+// Add ArticlePopup component
+function ArticlePopup({ isOpen, onClose, title, content }: { 
+  isOpen: boolean; 
+  onClose: () => void; 
+  title: string; 
+  content: string; 
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
+      <div className="relative w-[375px] h-[700px] bg-[#0A0A0A] text-white overflow-y-auto scrollbar-hide">
+        {/* Back button - stays fixed */}
+        <button 
+          onClick={onClose}
+          className="fixed top-4 left-[calc(50%-375px/2+16px)] z-50 flex items-center text-white/90 hover:text-white"
+        >
+          <span className="text-lg mr-2">←</span>
+          <span className="text-sm">Back</span>
+        </button>
+
+        <div className="px-4 pt-16">
+          {/* Title */}
+          <h1 className="text-[28px] font-bold leading-tight mb-4">NATO on High Alert: Chief Warns of WWIII Risk as Putin's Threats Escalate</h1>
+
+          {/* Source and date */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <img
+                src="https://picsum.photos/seed/dailymail/32/32"
+                alt="Daily Mail"
+                className="w-8 h-8 rounded-full"
+              />
+              <div className="flex flex-col justify-center">
+                <span className="text-xs text-white/70">Daily Mail</span>
+                <span className="text-[11px] text-white/50">@dailymail</span>
+              </div>
+            </div>
+            <div className="flex flex-col items-end">
+              <span className="text-xs text-[#FFB800]">Published on</span>
+              <span className="text-xs text-[#FFB800]">12 November 2024</span>
+            </div>
+          </div>
+
+          {/* Featured Image */}
+          <div className="w-full aspect-video bg-blue-600 mb-4">
+            <img
+              src="https://picsum.photos/seed/nato/800/450"
+              alt="NATO Meeting"
+              className="w-full h-full object-cover"
+            />
+          </div>
+
+          {/* Content */}
+          <div className="space-y-6 pb-4">
+            {/* NATO's Unprecedented Warning */}
+            <section>
+              <h2 className="text-[22px] font-bold mb-2">NATO's Unprecedented Warning</h2>
+              <p className="text-[13px] leading-relaxed text-white/80">
+                NATO leadership has issued a grave warning to its member states, calling for immediate preparation for potential "wartime scenarios". This extraordinary alert comes as a direct response to heightened international tensions and concerning rhetoric about World War III.
+              </p>
+            </section>
+
+            {/* Strategic Military Readiness */}
+            <section>
+              <h2 className="text-[22px] font-bold mb-2">Strategic Military Readiness</h2>
+              <p className="text-[13px] leading-relaxed text-white/80">
+                The alliance is intensifying its preparedness protocols, emphasizing the need for member nations to strengthen their defensive capabilities. This strategic shift reflects the organization's assessment of current global security risks and potential conflict scenarios.
+              </p>
+            </section>
+
+            {/* Geopolitical Context */}
+            <section>
+              <h2 className="text-[22px] font-bold mb-2">Geopolitical Context</h2>
+              <p className="text-[13px] leading-relaxed text-white/80">
+                Putin's Escalating Rhetoric Recent statements from Russia have contributed to the mounting tension, prompting NATO to take these unprecedented measures. The situation marks a critical point in international relations, with military readiness becoming increasingly paramount.
+              </p>
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isArticleOpen, onArticleOpenChange }: VideoPostProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -340,6 +427,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange }: Vi
               onClick={(e) => {
                 e.stopPropagation();
                 e.preventDefault();
+                onArticleOpenChange(true);
               }}
               className="pointer-events-auto px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full hover:bg-blue-600 transition-colors"
             >
@@ -350,35 +438,44 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange }: Vi
 
         {/* Engagement Buttons */}
         <div className="absolute bottom-[160px] right-4 flex flex-col space-y-4 pointer-events-auto">
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              setIsLiked(!isLiked);
-            }}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-          >
-            {isLiked ? '❤️' : '🤍'}
-          </button>
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              onCommentsOpenChange(!isCommentsOpen);
-            }}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-          >
-            💬
-          </button>
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-            }}
-            className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-          >
-            🔗
-          </button>
+          <div className="flex flex-col items-center">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setIsLiked(!isLiked);
+              }}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            >
+              {isLiked ? '❤️' : '🤍'}
+            </button>
+            <span className="text-white text-xs mt-1">{isLiked ? video.likes + 1 : video.likes}</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onCommentsOpenChange(!isCommentsOpen);
+              }}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            >
+              💬
+            </button>
+            <span className="text-white text-xs mt-1">{video.comments}</span>
+          </div>
+          <div className="flex flex-col items-center">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+              className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
+            >
+              🔗
+            </button>
+            <span className="text-white text-xs mt-1">Share</span>
+          </div>
         </div>
 
         {/* Play/Pause Indicator */}
@@ -422,37 +519,37 @@ const sampleVideos: { [key: string]: Video[] } = {
     }
   ],
   'For You': [
-    {
+  {
       id: 'foryou-1',
       url: '/VidAssets/dailymailvideo1.mp4',
       title: 'Daily Mail Latest 📰',
-      creator: {
+    creator: {
         name: 'Daily Mail',
         avatar: 'https://picsum.photos/seed/dailymail1/100/100',
-      },
-      likes: 1234,
-      comments: 89
     },
-    {
+    likes: 1234,
+      comments: 89
+  },
+  {
       id: 'foryou-2',
       url: '/VidAssets/dylanpagevideo2.mp4',
       title: 'Dylan Page Latest 🎬',
-      creator: {
+    creator: {
         name: 'Dylan Page',
         avatar: 'https://picsum.photos/seed/dylan2/100/100',
-      },
-      likes: 2345,
-      comments: 156
     },
-    {
+    likes: 2345,
+      comments: 156
+  },
+  {
       id: 'foryou-3',
       url: '/VidAssets/dailymailvideo2.mp4',
       title: 'Daily Mail Update 📽️',
-      creator: {
+    creator: {
         name: 'Daily Mail',
         avatar: 'https://picsum.photos/seed/dailymail2/100/100',
-      },
-      likes: 3456,
+    },
+    likes: 3456,
       comments: 234
     }
   ],
@@ -470,28 +567,28 @@ const sampleVideos: { [key: string]: Video[] } = {
     }
   ],
   Tech: [
-    {
+  {
       id: 'tech-1',
       url: '/VidAssets/dylanpagevideo1.mp4',
       title: 'Latest Tech Innovation 💻',
-      creator: {
+    creator: {
         name: 'Dylan Page',
         avatar: 'https://picsum.photos/seed/dylan3/100/100',
-      },
-      likes: 5678,
+    },
+    likes: 5678,
       comments: 342
     }
   ],
   Business: [
-    {
+  {
       id: 'business-1',
       url: '/VidAssets/dailymailvideo2.mp4',
       title: 'Business Insights 📈',
-      creator: {
+    creator: {
         name: 'Daily Mail',
         avatar: 'https://picsum.photos/seed/dailymail3/100/100',
-      },
-      likes: 4567,
+    },
+    likes: 4567,
       comments: 278
     }
   ]
@@ -503,6 +600,7 @@ export default function VideoFeed() {
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const [hasOpenComments, setHasOpenComments] = useState(false);
+  const [hasOpenArticle, setHasOpenArticle] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   
@@ -516,7 +614,7 @@ export default function VideoFeed() {
   const videos = sampleVideos[currentCategory] || sampleVideos['For You'];
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (hasOpenComments) return; // Prevent scrolling when comments are open
+    if (hasOpenComments || hasOpenArticle) return; // Prevent scrolling when comments or article are open
     const element = e.currentTarget;
     const newIndex = Math.round(element.scrollTop / element.clientHeight);
     if (newIndex !== activeVideoIndex) {
@@ -525,7 +623,7 @@ export default function VideoFeed() {
   };
 
   const handleCategoryChange = (newIndex: number) => {
-    if (hasOpenComments) return; // Prevent category change if comments are open
+    if (hasOpenComments || hasOpenArticle) return; // Prevent category change if comments or article are open
     
     const currentIndex = categories.indexOf(currentCategory);
     
@@ -541,19 +639,19 @@ export default function VideoFeed() {
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (hasOpenComments) return; // Prevent touch start if comments are open
+    if (hasOpenComments || hasOpenArticle) return; // Prevent touch start if comments or article are open
     setTouchStart(e.touches[0].clientX);
     setIsDragging(true);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || hasOpenComments) return;
+    if (!isDragging || hasOpenComments || hasOpenArticle) return;
     const currentX = e.touches[0].clientX;
     setDragOffset(currentX - (touchStart || 0));
   };
 
   const handleTouchEnd = () => {
-    if (!isDragging || hasOpenComments) return;
+    if (!isDragging || hasOpenComments || hasOpenArticle) return;
 
     const threshold = 50; // Minimum distance to trigger category change
     const currentIndex = categories.indexOf(currentCategory);
@@ -578,19 +676,19 @@ export default function VideoFeed() {
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (hasOpenComments) return; // Prevent mouse down if comments are open
+    if (hasOpenComments || hasOpenArticle) return; // Prevent mouse down if comments or article are open
     setTouchStart(e.clientX);
     setIsDragging(true);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || hasOpenComments) return;
+    if (!isDragging || hasOpenComments || hasOpenArticle) return;
     const currentX = e.clientX;
     setDragOffset(currentX - (touchStart || 0));
   };
 
   const handleMouseUp = () => {
-    if (!isDragging || hasOpenComments) return;
+    if (!isDragging || hasOpenComments || hasOpenArticle) return;
 
     const threshold = 50; // Minimum distance to trigger category change
     const currentIndex = categories.indexOf(currentCategory);
@@ -635,7 +733,7 @@ export default function VideoFeed() {
           transform: isDragging ? `translateX(${dragOffset}px)` : 'none',
           transition: isDragging ? 'none' : 'transform 0.3s ease-out',
           cursor: isDragging ? 'grabbing' : 'default',
-          pointerEvents: hasOpenComments ? 'none' : 'auto'
+          pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto'
         }}
       >
         {videos.map((video, index) => (
@@ -645,12 +743,14 @@ export default function VideoFeed() {
             isActive={index === activeVideoIndex}
             isCommentsOpen={hasOpenComments}
             onCommentsOpenChange={setHasOpenComments}
+            isArticleOpen={hasOpenArticle}
+            onArticleOpenChange={setHasOpenArticle}
           />
         ))}
       </div>
 
       {/* Bottom Navigation */}
-      <div style={{ pointerEvents: hasOpenComments ? 'none' : 'auto' }}>
+      <div style={{ pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto' }}>
         <BottomNav />
       </div>
 
@@ -660,6 +760,16 @@ export default function VideoFeed() {
           isOpen={hasOpenComments}
           onClose={() => setHasOpenComments(false)}
           comments={sampleComments[videos[activeVideoIndex].id] || []}
+        />
+      )}
+
+      {/* Article Popup */}
+      {videos[activeVideoIndex] && (
+        <ArticlePopup 
+          isOpen={hasOpenArticle}
+          onClose={() => setHasOpenArticle(false)}
+          title={generateVideoContent(videos[activeVideoIndex].url).title}
+          content={generateVideoContent(videos[activeVideoIndex].url).text}
         />
       )}
     </div>
