@@ -4,7 +4,7 @@ import Follow from '../models/followModel.js';
 import User from '../models/userModel.js';
 import Video from '../models/videoModel.js';
 import Article from '../models/articleModel.js';
-import { createError } from '../utils/error.js';
+import { createError } from '../utils/errorMessage.js';
 import mongoose from 'mongoose';
 
 // Like Controllers
