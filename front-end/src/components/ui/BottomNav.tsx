@@ -28,7 +28,7 @@ export default function BottomNav() {
   };
 
   return (
-    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur-md rounded-full px-4 py-2">
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/40 backdrop-blur-md rounded-2xl px-4 py-2 shadow-lg">
       <div className="flex items-center space-x-6">
         {navItems.map((item) => (
           <button

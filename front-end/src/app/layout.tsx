@@ -14,9 +14,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} bg-gray-900`}>
-        <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="min-h-screen flex items-center justify-center">
           {/* Phone Container */}
-          <div className="w-full max-w-[375px] h-[700px] bg-black rounded-3xl overflow-hidden shadow-2xl relative">
+          <div className="w-[360px] tall-screen:w-[720px] h-screen max-h-screen aspect-[375/700] bg-black rounded-3xl overflow-hidden shadow-2xl relative">
             {children}
           </div>
         </div>

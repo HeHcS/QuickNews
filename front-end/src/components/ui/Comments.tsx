@@ -45,7 +45,7 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
       }}
     >
       <div 
-        className={`w-full max-w-[375px] h-[70vh] bg-black rounded-t-2xl transform transition-all duration-300 ease-out flex flex-col ${
+        className={`w-[360px] tall-screen:w-[720px] h-[70vh] bg-black rounded-t-2xl transform transition-all duration-300 ease-out flex flex-col ${
           isOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
         onClick={(e) => e.stopPropagation()}
