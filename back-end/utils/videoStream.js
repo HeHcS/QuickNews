@@ -6,135 +6,96 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Path to video storage directory (you may need to adjust this)
+// Path to video storage directory
 const VIDEOS_DIR = path.join(__dirname, '..', 'uploads', 'videos');
 
-/**
- * Stream a video with support for range requests
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {string} filename - Name of the video file to stream
- */
+// Ensure the videos directory exists
+export const ensureVideosDirExists = () => {
+  if (!fs.existsSync(VIDEOS_DIR)) {
+    fs.mkdirSync(VIDEOS_DIR, { recursive: true });
+    console.log(`Created videos directory at ${VIDEOS_DIR}`);
+  }
+};
+
+// Export the videos directory path
+export const getVideosDir = () => VIDEOS_DIR;
+
+// Fix video filename issues
+function sanitizeVideoFilename(filename) {
+  // Remove any spaces and ensure proper extension
+  let cleanName = filename.replace(/\s+/g, '');
+  
+  // If the extension is split (ends with .mp), append 4
+  if (cleanName.endsWith('.mp')) {
+    cleanName += '4';
+  }
+  
+  // If no extension, add .mp4
+  if (!path.extname(cleanName)) {
+    cleanName += '.mp4';
+  }
+  
+  return cleanName;
+}
+
 export const streamVideo = async (req, res, filename) => {
   try {
+    // Clean up the filename
+    const cleanFilename = sanitizeVideoFilename(filename);
+    
     // Build the full path to the video file
-    const videoPath = path.join(VIDEOS_DIR, filename);
+    const videoPath = path.join(VIDEOS_DIR, cleanFilename);
     
     // Check if the file exists
     if (!fs.existsSync(videoPath)) {
-      return res.status(404).json({ message: 'Video not found' });
+      return res.status(404).json({ message: 'Video file not found' });
     }
     
     // Get video stats (file size, etc.)
     const stat = fs.statSync(videoPath);
     const fileSize = stat.size;
-    
-    // Get range from request headers
     const range = req.headers.range;
-    
-    // If range header exists, we need to send a partial response
+
     if (range) {
-      // Parse the range header
       const parts = range.replace(/bytes=/, '').split('-');
-      
-      // Ensure start is a valid number
-      let start = parseInt(parts[0], 10);
-      if (isNaN(start)) {
-        start = 0;
-      }
-      
-      // Ensure end is a valid number and doesn't exceed file size
+      const start = parseInt(parts[0], 10);
       let end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
-      if (isNaN(end) || end >= fileSize) {
-        end = fileSize - 1;
-      }
-      
-      // Ensure start doesn't exceed file size or end position
-      if (start >= fileSize || start > end) {
-        // Return 416 Range Not Satisfiable
+
+      if (isNaN(start) || start >= fileSize) {
         return res.status(416).send({
           message: 'Requested range not satisfiable',
           range,
           fileSize
         });
       }
-      
-      // Calculate the chunk size
-      const chunkSize = (end - start) + 1;
-      
-      // Set maximum chunk size to prevent excessive memory usage
-      const MAX_CHUNK_SIZE = 1024 * 1024 * 10; // 10MB
-      if (chunkSize > MAX_CHUNK_SIZE) {
-        end = start + MAX_CHUNK_SIZE - 1;
+
+      // Limit chunk size
+      const maxChunk = 1024 * 1024 * 10; // 10MB
+      if (end - start > maxChunk) {
+        end = start + maxChunk;
       }
-      
-      // Create read stream for this chunk
+
       const file = fs.createReadStream(videoPath, { start, end });
-      
-      // Add error handler to the stream
-      file.on('error', (err) => {
-        console.error('Stream error:', err);
-        if (!res.headersSent) {
-          res.status(500).json({ message: 'Error streaming video', error: err.message });
-        }
-      });
-      
-      // Set appropriate headers for partial content
-      const headers = {
+      const head = {
         'Content-Range': `bytes ${start}-${end}/${fileSize}`,
         'Accept-Ranges': 'bytes',
-        'Content-Length': (end - start) + 1,
-        'Content-Type': getContentType(filename)
+        'Content-Length': end - start + 1,
+        'Content-Type': getContentType(videoPath)
       };
-      
-      // Send partial content response (HTTP 206)
-      res.writeHead(206, headers);
-      
-      // Pipe the file stream to the response
+
+      res.writeHead(206, head);
       file.pipe(res);
     } else {
-      // No range header, send the entire file
-      // For large files, it's better to use a default range instead of sending the whole file
-      if (fileSize > 1024 * 1024 * 50) { // If file is larger than 50MB
-        const start = 0;
-        const end = 1024 * 1024 * 2 - 1; // Send first 2MB
-        
-        const headers = {
-          'Content-Range': `bytes ${start}-${end}/${fileSize}`,
-          'Accept-Ranges': 'bytes',
-          'Content-Length': end + 1,
-          'Content-Type': getContentType(filename)
-        };
-        
-        res.writeHead(206, headers);
-        const file = fs.createReadStream(videoPath, { start, end });
-        file.on('error', (err) => {
-          console.error('Stream error:', err);
-          if (!res.headersSent) {
-            res.status(500).json({ message: 'Error streaming video', error: err.message });
-          }
-        });
-        file.pipe(res);
-      } else {
-        const headers = {
-          'Content-Length': fileSize,
-          'Content-Type': getContentType(filename),
-          'Accept-Ranges': 'bytes'
-        };
-        
-        res.writeHead(200, headers);
-        const file = fs.createReadStream(videoPath);
-        file.on('error', (err) => {
-          console.error('Stream error:', err);
-          if (!res.headersSent) {
-            res.status(500).json({ message: 'Error streaming video', error: err.message });
-          }
-        });
-        file.pipe(res);
-      }
+      const head = {
+        'Content-Length': fileSize,
+        'Content-Type': getContentType(videoPath),
+        'Accept-Ranges': 'bytes'
+      };
+      res.writeHead(200, head);
+      fs.createReadStream(videoPath).pipe(res);
     }
   } catch (error) {
-    console.error('Video streaming error:', error);
+    console.error('Error in streamVideo:', error);
     if (!res.headersSent) {
       res.status(500).json({ message: 'Error streaming video', error: error.message });
     }
@@ -160,17 +121,4 @@ function getContentType(filename) {
     default:
       return 'video/mp4'; // Default fallback
   }
-}
-
-/**
- * Ensure the videos directory exists
- */
-export const ensureVideosDirExists = () => {
-  if (!fs.existsSync(VIDEOS_DIR)) {
-    fs.mkdirSync(VIDEOS_DIR, { recursive: true });
-    console.log(`Created videos directory at ${VIDEOS_DIR}`);
-  }
-};
-
-// Export the videos directory path
-export const getVideosDir = () => VIDEOS_DIR; 
+} 

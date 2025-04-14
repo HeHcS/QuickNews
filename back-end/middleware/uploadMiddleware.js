@@ -80,8 +80,24 @@ const videoStorage = multer.diskStorage({
     const userId = req.user?._id || 'unknown';
     const timestamp = Date.now();
     const uniqueSuffix = timestamp + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, `video-${userId}-${uniqueSuffix}${ext}`);
+    // Ensure proper extension based on mimetype
+    let ext;
+    switch (file.mimetype) {
+      case 'video/mp4':
+        ext = '.mp4';
+        break;
+      case 'video/webm':
+        ext = '.webm';
+        break;
+      case 'video/quicktime':
+        ext = '.mov';
+        break;
+      default:
+        ext = '.mp4';
+    }
+    // Create filename without spaces
+    const filename = `video-${userId}-${uniqueSuffix}${ext}`.replace(/\s+/g, '');
+    cb(null, filename);
   }
 });
 

@@ -6,11 +6,12 @@ import TopNav from './TopNav';
 import BottomNav from './BottomNav';
 import Comments from './Comments';
 import { usePathname, useRouter } from 'next/navigation';
+import axios from 'axios';
 import ArticlePopup from './ArticlePopup';
 
 interface Video {
   id: string;
-  url: string;
+  videoFile: string;  // This will be the full URL from the database
   title: string;
   creator: {
     name: string;
@@ -36,6 +37,11 @@ interface VideoPostProps {
   onCommentsOpenChange: (isOpen: boolean) => void;
   isArticleOpen: boolean;
   onArticleOpenChange: (isOpen: boolean) => void;
+}
+
+interface VideoFeedProps {
+  page?: number;
+  limit?: number;
 }
 
 const sampleComments: { [key: string]: Array<{
@@ -139,11 +145,11 @@ const sampleComments: { [key: string]: Array<{
     {
       id: '1',
       user: {
-        name: 'Lisa Chen',
-        avatar: 'https://picsum.photos/seed/lisa/100/100',
+        name: 'Michael Brown',
+        avatar: 'https://picsum.photos/seed/michael/100/100',
       },
-      text: 'Important update! Thanks for keeping us informed 📰',
-      likes: 234,
+      text: 'First time seeing your content and I\'m already hooked! 🎬 Instant follow!',
+      likes: 423,
       timestamp: '1h ago',
     }
   ],
@@ -151,8 +157,8 @@ const sampleComments: { [key: string]: Array<{
     {
       id: '1',
       user: {
-        name: 'Alex Rivera',
-        avatar: 'https://picsum.photos/seed/alex/100/100',
+        name: 'Sophie Taylor',
+        avatar: 'https://picsum.photos/seed/sophie/100/100',
       },
       text: 'The future of tech is looking bright! 🚀',
       likes: 345,
@@ -163,18 +169,26 @@ const sampleComments: { [key: string]: Array<{
     {
       id: '1',
       user: {
-        name: 'Mark Thompson',
-        avatar: 'https://picsum.photos/seed/mark/100/100',
+        name: 'James Wilson',
+        avatar: 'https://picsum.photos/seed/james/100/100',
       },
       text: 'Great insights on market trends! 📈',
       likes: 278,
       timestamp: '1h ago',
     }
-  ]
+  ],
+  // Add more comments for other videos...
 };
 
-const generateVideoContent = (url: string) => {
-  const filename = url.split('/').pop()?.replace('.mp4', '') || '';
+const generateVideoContent = (videoFile: string | undefined) => {
+  if (!videoFile) {
+    return {
+      title: 'Content Unavailable',
+      text: 'This content is currently unavailable.'
+    };
+  }
+
+  const filename = videoFile.split('/').pop()?.replace('.mp4', '') || '';
   
   // Define content templates based on video source
   const contentTemplates: { [key: string]: { title: string; text: string } } = {
@@ -221,8 +235,20 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     setIsCaptionsExpanded(false);
   }, [video.id, isActive]);
 
-  // Generate content based on video URL
-  const videoContent = generateVideoContent(video.url);
+  // Generate content based on video file
+  const videoContent = generateVideoContent(video?.videoFile);
+
+  // Early return if video data is invalid
+  if (!video || !video.videoFile) {
+    return (
+      <div ref={ref} className="relative h-[700px] w-full snap-start bg-black flex items-center justify-center">
+        <div className="text-white text-center p-4">
+          <p className="text-xl font-bold mb-2">Video Unavailable</p>
+          <p className="text-sm opacity-80">This content could not be loaded.</p>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (!videoRef.current) return;
@@ -272,12 +298,12 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
           togglePlay(e);
         }}
       >
-        <video
-          ref={videoRef}
-          src={video.url}
-          loop
-          playsInline
-          className="absolute inset-0 w-full h-full object-contain bg-black"
+      <video
+        ref={videoRef}
+        src={video.videoFile} // Directly use the videoFile URL from the database
+        loop
+        playsInline
+        className="absolute inset-0 w-full h-full object-contain bg-black"
         />
         {/* Bottom Gradient Overlay */}
         <div 
@@ -320,9 +346,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
         <div className="absolute bottom-[70px] left-0 right-0 p-2.5 text-white">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <img
-                src={video.creator.avatar || '/default-avatar.png'}
-                alt={video.creator.name}
+          <img
+            src={video.creator.avatar || '/default-avatar.png'}
+            alt={video.creator.name}
                 className="w-10 h-10 rounded-full border border-white/20"
               />
               <div>
@@ -350,7 +376,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
               Full Article
             </button>
           </div>
-        </div>
+      </div>
 
         {/* Engagement Buttons */}
         <div className="absolute bottom-[160px] right-4 flex flex-col space-y-4 pointer-events-auto">
@@ -402,113 +428,10 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
             </div>
           </div>
         )}
+        </div>
       </div>
-    </div>
   );
 }
-
-const sampleVideos: { [key: string]: Video[] } = {
-  Breaking: [
-    {
-      id: 'breaking-1',
-      url: '/VidAssets/bbcnewsvideo1.mp4',
-      title: 'Breaking: Latest News Update 📰',
-      creator: {
-        name: 'BBC News',
-        avatar: 'https://picsum.photos/seed/bbc1/100/100',
-      },
-      likes: 1234,
-      comments: 89
-    }
-  ],
-  Following: [
-    {
-      id: 'following-1',
-      url: '/VidAssets/dylanpagevideo1.mp4',
-      title: 'From Your Favorite Creator 🌟',
-      creator: {
-        name: 'Dylan Page',
-        avatar: 'https://picsum.photos/seed/dylan1/100/100',
-      },
-      likes: 2345,
-      comments: 156
-    }
-  ],
-  'For You': [
-  {
-      id: 'foryou-1',
-      url: '/VidAssets/dailymailvideo1.mp4',
-      title: 'Daily Mail Latest 📰',
-    creator: {
-        name: 'Daily Mail',
-        avatar: 'https://picsum.photos/seed/dailymail1/100/100',
-    },
-    likes: 1234,
-      comments: 89
-  },
-  {
-      id: 'foryou-2',
-      url: '/VidAssets/dylanpagevideo2.mp4',
-      title: 'Dylan Page Latest 🎬',
-    creator: {
-        name: 'Dylan Page',
-        avatar: 'https://picsum.photos/seed/dylan2/100/100',
-    },
-    likes: 2345,
-      comments: 156
-  },
-  {
-      id: 'foryou-3',
-      url: '/VidAssets/dailymailvideo2.mp4',
-      title: 'Daily Mail Update 📽️',
-    creator: {
-        name: 'Daily Mail',
-        avatar: 'https://picsum.photos/seed/dailymail2/100/100',
-    },
-    likes: 3456,
-      comments: 234
-    }
-  ],
-  Politics: [
-    {
-      id: 'politics-1',
-      url: '/VidAssets/bbcnewsvideo1.mp4',
-      title: 'Latest Political Update 🏛️',
-      creator: {
-        name: 'BBC News',
-        avatar: 'https://picsum.photos/seed/bbc2/100/100',
-      },
-      likes: 3456,
-      comments: 234
-    }
-  ],
-  Tech: [
-  {
-      id: 'tech-1',
-      url: '/VidAssets/dylanpagevideo1.mp4',
-      title: 'Latest Tech Innovation 💻',
-    creator: {
-        name: 'Dylan Page',
-        avatar: 'https://picsum.photos/seed/dylan3/100/100',
-    },
-    likes: 5678,
-      comments: 342
-    }
-  ],
-  Business: [
-  {
-      id: 'business-1',
-      url: '/VidAssets/dailymailvideo2.mp4',
-      title: 'Business Insights 📈',
-    creator: {
-        name: 'Daily Mail',
-        avatar: 'https://picsum.photos/seed/dailymail3/100/100',
-    },
-    likes: 4567,
-      comments: 278
-    }
-  ]
-};
 
 export default function VideoFeed() {
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
@@ -517,6 +440,9 @@ export default function VideoFeed() {
   const [dragOffset, setDragOffset] = useState(0);
   const [hasOpenComments, setHasOpenComments] = useState(false);
   const [hasOpenArticle, setHasOpenArticle] = useState(false);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   
@@ -527,7 +453,84 @@ export default function VideoFeed() {
   const currentCategory = pathname === '/' || pathname === '/foryou' ? 'For You' : 
     pathname.slice(1).charAt(0).toUpperCase() + pathname.slice(2);
 
-  const videos = sampleVideos[currentCategory] || sampleVideos['For You'];
+  useEffect(() => {
+    const fetchVideos = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // Only send category if it's a valid MongoDB ObjectId
+        const params = currentCategory === 'For You' ? {} : 
+          /^[0-9a-fA-F]{24}$/.test(currentCategory) ? { category: currentCategory } : {};
+        
+        console.log('Fetching videos with params:', params);
+        console.log('Current category:', currentCategory);
+        
+        // Fetch videos from backend
+        const response = await axios.get('http://localhost:5000/api/videos/feed', {
+          params,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+
+        console.log('Raw video feed response:', response.data);
+
+        // Check if response has the videos array
+        if (response.data && Array.isArray(response.data.videos)) {
+          // Map the response to include full video URLs
+          const videosWithUrls = response.data.videos.map((video: any) => ({
+            ...video,
+            videoFile: `http://localhost:5000/api/videos/${video._id}/stream`
+          }));
+          setVideos(videosWithUrls);
+        } else {
+          throw new Error('Invalid response format from server');
+        }
+      } catch (err: any) {
+        let errorMessage = 'Failed to fetch videos';
+        
+        if (err.code === 'ECONNABORTED') {
+          errorMessage = 'Request timed out. Please check your connection.';
+        } else if (err.response) {
+          // Server responded with error
+          errorMessage = err.response.data?.message || `Server error: ${err.response.status}`;
+          console.log('Server error response:', err.response.data);
+        } else if (err.request) {
+          // Request made but no response
+          errorMessage = 'Could not connect to server. Please check if the server is running.';
+          console.log('No response received:', err.request);
+        } else {
+          // Other errors
+          errorMessage = err.message || 'An unexpected error occurred';
+          console.log('Other error:', err);
+        }
+        
+        setError(errorMessage);
+        console.error('Error fetching videos:', {
+          code: err.code,
+          status: err.response?.status,
+          message: errorMessage,
+          error: err
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchVideos();
+  }, [currentCategory]);
+
+  // Add debug log for videos state changes
+  useEffect(() => {
+    console.log('Videos state updated:', videos);
+  }, [videos]);
+
+  // Add debug log for loading state changes
+  useEffect(() => {
+    console.log('Loading state:', isLoading);
+  }, [isLoading]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (hasOpenComments || hasOpenArticle) return; // Prevent scrolling when comments or article are open
@@ -540,7 +543,7 @@ export default function VideoFeed() {
 
   const handleCategoryChange = (newIndex: number) => {
     if (hasOpenComments || hasOpenArticle) return; // Prevent category change if comments or article are open
-    
+  
     const currentIndex = categories.indexOf(currentCategory);
     
     if (newIndex !== currentIndex) {
@@ -628,6 +631,34 @@ export default function VideoFeed() {
     setTouchStart(null);
   };
 
+  if (isLoading) {
+    return (
+      <div className="relative h-full flex items-center justify-center bg-black">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading videos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="relative h-full flex items-center justify-center bg-black">
+        <div className="text-white text-center p-4">
+          <p className="text-red-500 mb-2">⚠️ Error loading videos</p>
+          <p className="text-sm opacity-80">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-blue-500 rounded-full hover:bg-blue-600 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       className="relative h-full"
@@ -643,7 +674,7 @@ export default function VideoFeed() {
       
       {/* Video Feed */}
       <div 
-        className={`absolute inset-0 overflow-y-scroll snap-y snap-mandatory scrollbar-hide`}
+        className="absolute inset-0 overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
         onScroll={handleScroll}
         style={{
           transform: isDragging ? `translateX(${dragOffset}px)` : 'none',
@@ -652,17 +683,23 @@ export default function VideoFeed() {
           pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto'
         }}
       >
-        {videos.map((video, index) => (
-          <VideoPost
-            key={video.id}
-            video={video}
-            isActive={index === activeVideoIndex}
-            isCommentsOpen={hasOpenComments}
-            onCommentsOpenChange={setHasOpenComments}
-            isArticleOpen={hasOpenArticle}
-            onArticleOpenChange={setHasOpenArticle}
-          />
-        ))}
+        {videos.length === 0 ? (
+          <div className="h-full flex items-center justify-center bg-black text-white text-center p-4">
+            <p>No videos available for this category</p>
+          </div>
+        ) : (
+          videos.map((video, index) => (
+            <VideoPost
+              key={video.id}
+              video={video}
+              isActive={index === activeVideoIndex}
+              isCommentsOpen={hasOpenComments}
+              onCommentsOpenChange={setHasOpenComments}
+              isArticleOpen={hasOpenArticle}
+              onArticleOpenChange={setHasOpenArticle}
+            />
+          ))
+        )}
       </div>
 
       {/* Bottom Navigation */}
@@ -684,8 +721,8 @@ export default function VideoFeed() {
         <ArticlePopup 
           isOpen={hasOpenArticle}
           onClose={() => setHasOpenArticle(false)}
-          title={generateVideoContent(videos[activeVideoIndex].url).title}
-          content={generateVideoContent(videos[activeVideoIndex].url).text}
+          title={generateVideoContent(videos[activeVideoIndex].videoFile).title}
+          content={generateVideoContent(videos[activeVideoIndex].videoFile).text}
         />
       )}
     </div>

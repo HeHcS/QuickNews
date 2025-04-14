@@ -2,10 +2,15 @@ import Video from '../models/videoModel.js';
 import Category from '../models/categoryModel.js';
 import Bookmark from '../models/bookmarkModel.js';
 import mongoose from 'mongoose';
-import { streamVideo } from '../utils/videoStream.js';
+import { streamVideo, getVideosDir } from '../utils/videoStream.js';
 import { getCache, setCache, deleteCache, clearCacheByPattern } from '../utils/redisCache.js';
 import { catchAsync } from '../utils/catchAsync.js';
 import AppError from '../utils/appError.js';
+import path from 'path';
+import fs from 'fs';
+
+// Get videos directory
+const VIDEOS_DIR = getVideosDir();
 
 // Cache keys
 const CACHE_KEYS = {
@@ -36,6 +41,12 @@ export const streamVideoById = async (req, res) => {
       return res.status(403).json({ message: 'This video is not available' });
     }
     
+    // Check if the video file exists
+    const fullPath = path.join(VIDEOS_DIR, video.videoFile);
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ message: 'Video file not found' });
+    }
+    
     // Increment view count (don't await to not delay the streaming)
     Video.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } }).exec();
     
@@ -43,7 +54,6 @@ export const streamVideoById = async (req, res) => {
     streamVideo(req, res, video.videoFile);
   } catch (error) {
     console.error('Error streaming video:', error);
-    // Check if headers have been sent before attempting to send error response
     if (!res.headersSent) {
       res.status(500).json({ message: 'Error streaming video', error: error.message });
     }
@@ -557,11 +567,18 @@ export const uploadVideo = catchAsync(async (req, res, next) => {
     return next(new AppError('No video file uploaded', 400));
   }
 
+  // Convert absolute path to relative path for storage
+  const relativePath = path.basename(req.file.path);
+  console.log('File upload path:', {
+    original: req.file.path,
+    relative: relativePath
+  });
+
   const videoData = {
     title: req.body.title,
     description: req.body.description,
     creator: req.user._id, // Assuming user is attached by auth middleware
-    videoFile: req.file.path,
+    videoFile: relativePath, // Store only the filename, not the full path
     categories: req.body.categories ? JSON.parse(req.body.categories) : [],
     tags: req.body.tags ? JSON.parse(req.body.tags) : [],
     isPublished: req.body.isPublished === 'false' ? false : true,
@@ -569,6 +586,7 @@ export const uploadVideo = catchAsync(async (req, res, next) => {
   };
 
   const video = await Video.create(videoData);
+  console.log('Created video record:', JSON.stringify(video, null, 2));
 
   res.status(201).json({
     status: 'success',

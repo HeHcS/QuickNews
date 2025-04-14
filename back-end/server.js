@@ -15,6 +15,7 @@ import engagementRoutes from './routes/engagementRoutes.js';
 import { initRedis, closeRedis } from './utils/redisCache.js';
 import { ensureVideosDirExists } from './utils/videoStream.js';
 import { ensureProfilesDirExists } from './utils/fileSystem.js';
+import cors from 'cors';
 
 // Load environment variables
 dotenv.config();
@@ -25,6 +26,16 @@ const __dirname = path.dirname(__filename);
 
 // Initialize app
 const app = express();
+
+// CORS Configuration
+const corsOptions = {
+  origin: ['http://localhost:3000', 'http://localhost:5000'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+  credentials: true
+};
+
+app.use(cors(corsOptions));
 
 // Create global io variable for Socket.IO
 let io;
