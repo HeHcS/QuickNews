@@ -2,6 +2,8 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import { Mail } from 'lucide-react';
 
 const categories = [
   { name: 'Breaking', path: '/breaking' },
@@ -29,24 +31,24 @@ export default function TopNav() {
   };
 
   return (
-    <div className="absolute top-12 left-0 right-0 z-20">
+    <div className="absolute top-24 left-0 right-0 z-20">
       {/* Navigation Container */}
       <div className="relative w-full flex justify-center">
-        <div className="flex items-center justify-between w-full px-4">
+        <div className="flex items-center justify-between w-full px-3">
           {/* Menu Icon */}
-          <button className="w-8 h-8 flex items-center justify-center text-white/90 hover:text-white">
-            <span className="text-xl">☰</span>
+          <button className="w-8 h-8 flex items-center justify-center text-black hover:text-black/80">
+            <span className="text-xl font-bold">☰</span>
           </button>
 
           {/* Categories */}
-          <div className="flex space-x-1 overflow-x-auto scrollbar-hide items-center max-w-[280px] bg-white/10 backdrop-blur-sm rounded-full px-2 py-1">
+          <div className="flex space-x-0.5 overflow-x-auto scrollbar-hide items-center max-w-[280px] bg-black/30 backdrop-blur-sm rounded-full px-1.5 py-1">
             {categories.map((category) => (
               <button
                 key={category.name}
                 onClick={() => handleCategoryClick(category)}
-                className={`px-1 py-0.5 text-[8px] font-medium rounded-full whitespace-nowrap transition-colors
+                className={`px-1.5 py-1 text-[6px] font-medium rounded-full whitespace-nowrap transition-colors
                   ${activeCategory === category.name
-                    ? 'bg-white text-black'
+                    ? 'bg-[#29ABE2] text-white'
                     : 'text-white/90 hover:text-white'
                   }`}
               >
@@ -56,8 +58,8 @@ export default function TopNav() {
           </div>
 
           {/* Mail Icon */}
-          <button className="w-8 h-8 flex items-center justify-center text-white/90 hover:text-white">
-            <span className="text-xl">✉️</span>
+          <button className="w-8 h-8 flex items-center justify-center text-black hover:text-black/80">
+            <Mail size={24} strokeWidth={2.5} className="transform transition-transform duration-300 hover:scale-110" />
           </button>
         </div>
       </div>

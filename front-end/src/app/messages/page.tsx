@@ -1,12 +1,7 @@
-import BottomNav from '@/components/ui/BottomNav';
+'use client';
+
+import AuthPage from '@/components/ui/AuthPage';
 
 export default function MessagesPage() {
-  return (
-    <div className="h-screen bg-black text-white">
-      <div className="flex items-center justify-center h-full">
-        <h1 className="text-2xl font-bold">Messages 💬</h1>
-      </div>
-      <BottomNav />
-    </div>
-  );
+  return <AuthPage />;
 } 
