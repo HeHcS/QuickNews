@@ -1,6 +1,15 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface Comment {
+  id: string;
+  user: { name: string; avatar: string };
+  text: string;
+  likes: number;
+  timestamp: string;
+  replies?: Reply[];
+}
+
+interface Reply {
   id: string;
   user: { name: string; avatar: string };
   text: string;
@@ -15,10 +24,35 @@ interface CommentsProps {
 }
 
 export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
+  const [expandedReplies, setExpandedReplies] = useState<Record<string, boolean>>({});
+  const [replyText, setReplyText] = useState<Record<string, string>>({});
+  const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
+  const [likedComments, setLikedComments] = useState<Record<string, boolean>>({});
+  const [likedReplies, setLikedReplies] = useState<Record<string, boolean>>({});
+  const [commentLikes, setCommentLikes] = useState<Record<string, number>>({});
+  const [replyLikes, setReplyLikes] = useState<Record<string, number>>({});
+
   useEffect(() => {
     if (isOpen) {
       // Prevent scrolling on the body when comments are open
       document.body.style.overflow = 'hidden';
+      
+      // Initialize likes state from comments
+      const initialCommentLikes: Record<string, number> = {};
+      const initialReplyLikes: Record<string, number> = {};
+      
+      comments.forEach(comment => {
+        initialCommentLikes[comment.id] = comment.likes;
+        
+        if (comment.replies) {
+          comment.replies.forEach(reply => {
+            initialReplyLikes[reply.id] = reply.likes;
+          });
+        }
+      });
+      
+      setCommentLikes(initialCommentLikes);
+      setReplyLikes(initialReplyLikes);
     } else {
       // Restore normal scrolling when comments are closed
       document.body.style.overflow = '';
@@ -28,11 +62,132 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
     return () => {
       document.body.style.overflow = '';
     };
-  }, [isOpen]);
+  }, [isOpen, comments]);
 
   const handlePanelClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
+
+  const toggleReplies = (commentId: string) => {
+    setExpandedReplies(prev => ({
+      ...prev,
+      [commentId]: !prev[commentId]
+    }));
+  };
+
+  const handleReplyClick = (commentId: string) => {
+    // Toggle the replies section
+    toggleReplies(commentId);
+    
+    // If we're opening the replies, set this as the active reply
+    if (!expandedReplies[commentId]) {
+      setActiveReplyId(commentId);
+    } else {
+      // If we're closing the replies, clear the active reply
+      setActiveReplyId(null);
+    }
+  };
+
+  const handleReplyChange = (commentId: string, text: string) => {
+    setReplyText(prev => ({
+      ...prev,
+      [commentId]: text
+    }));
+  };
+
+  const handleSubmitReply = (commentId: string) => {
+    // In a real app, this would send the reply to the server
+    console.log(`Submitting reply for comment ${commentId}: ${replyText[commentId]}`);
+    setReplyText(prev => ({
+      ...prev,
+      [commentId]: ''
+    }));
+    setActiveReplyId(null);
+  };
+
+  const handleCommentLike = (commentId: string) => {
+    setLikedComments(prev => {
+      const newState = { ...prev };
+      newState[commentId] = !newState[commentId];
+      return newState;
+    });
+    
+    setCommentLikes(prev => {
+      const newLikes = { ...prev };
+      if (likedComments[commentId]) {
+        // Unlike
+        newLikes[commentId] = Math.max(0, newLikes[commentId] - 1);
+      } else {
+        // Like
+        newLikes[commentId] = newLikes[commentId] + 1;
+      }
+      return newLikes;
+    });
+  };
+
+  const handleReplyLike = (replyId: string) => {
+    setLikedReplies(prev => {
+      const newState = { ...prev };
+      newState[replyId] = !newState[replyId];
+      return newState;
+    });
+    
+    setReplyLikes(prev => {
+      const newLikes = { ...prev };
+      if (likedReplies[replyId]) {
+        // Unlike
+        newLikes[replyId] = Math.max(0, newLikes[replyId] - 1);
+      } else {
+        // Like
+        newLikes[replyId] = newLikes[replyId] + 1;
+      }
+      return newLikes;
+    });
+  };
+
+  // Generate placeholder replies if they don't exist
+  const commentsWithReplies = comments.map(comment => {
+    if (!comment.replies) {
+      return {
+        ...comment,
+        replies: [
+          {
+            id: `${comment.id}-reply-1`,
+            user: { name: 'User1', avatar: 'https://picsum.photos/seed/user1/100/100' },
+            text: 'This is a placeholder reply! (◕‿◕✿)',
+            likes: 5,
+            timestamp: '1h ago'
+          }
+        ]
+      };
+    }
+    return comment;
+  });
+
+  // Add just one placeholder comment if there are no comments
+  const enhancedComments = commentsWithReplies.length === 0 
+    ? [
+        {
+          id: 'placeholder-1',
+          user: { 
+            name: 'KawaiiUser', 
+            avatar: 'https://picsum.photos/seed/kawaii1/100/100' 
+          },
+          text: 'This video is so kawaii! (◕‿◕✿)',
+          likes: 42,
+          timestamp: '2h ago',
+          replies: [
+            {
+              id: 'placeholder-1-reply-1',
+              user: { name: 'KawaiiFan', avatar: 'https://picsum.photos/seed/fan1/100/100' },
+              text: 'Totally agree! This is so kawaii! (◕‿◕✿)',
+              likes: 12,
+              timestamp: '1h ago'
+            }
+          ]
+        }
+      ] 
+    : commentsWithReplies;
 
   return (
     <div 
@@ -58,7 +213,7 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-gray-800">
           <div className="flex items-center gap-2">
-            <span className="text-white/70 text-sm">{comments.length} Comments</span>
+            <span className="text-white/70 text-sm">{enhancedComments.length} Comments</span>
           </div>
           <button 
             onClick={onClose}
@@ -70,8 +225,8 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
         </div>
 
         {/* Comments List */}
-        <div className="flex-1 overflow-y-auto">
-          {comments.map((comment) => (
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
+          {enhancedComments.map((comment) => (
             <div key={comment.id} className="flex gap-3 p-3 hover:bg-white/5">
               <img 
                 src={comment.user.avatar} 
@@ -85,12 +240,83 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
                 </div>
                 <p className="text-sm mt-1 text-white">{comment.text}</p>
                 <div className="flex items-center gap-4 mt-2">
-                  <button className="flex items-center gap-1 text-white/70 hover:text-white text-xs">
-                    <span>❤️</span>
-                    <span>{comment.likes}</span>
+                  <button 
+                    onClick={() => handleCommentLike(comment.id)}
+                    className={`flex items-center gap-1 text-xs transition-colors ${
+                      likedComments[comment.id] ? 'text-red-500' : 'text-white/70 hover:text-white'
+                    }`}
+                  >
+                    <span>{likedComments[comment.id] ? '❤️' : '🤍'}</span>
+                    <span>{commentLikes[comment.id] || comment.likes}</span>
                   </button>
-                  <button className="text-white/70 hover:text-white text-xs">💬 Reply</button>
+                  <button 
+                    onClick={() => handleReplyClick(comment.id)}
+                    className="text-white/70 hover:text-white text-xs"
+                  >
+                    💬 Reply
+                  </button>
                 </div>
+
+                {/* Replies Section */}
+                {expandedReplies[comment.id] && (
+                  <div className="mt-3 pl-4 border-l-2 border-white/10">
+                    {/* Reply Input Field */}
+                    {activeReplyId === comment.id && (
+                      <div className="flex gap-2 mb-3">
+                        <input 
+                          type="text" 
+                          value={replyText[comment.id] || ''}
+                          onChange={(e) => handleReplyChange(comment.id, e.target.value)}
+                          placeholder="Write a reply..."
+                          className="flex-1 bg-white/10 rounded-full px-3 py-1.5 text-xs text-white placeholder-white/50 focus:outline-none"
+                        />
+                        <button 
+                          onClick={() => handleSubmitReply(comment.id)}
+                          className="px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-full hover:bg-blue-600 transition-colors"
+                        >
+                          Reply
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Replies List */}
+                    {comment.replies && comment.replies.map((reply) => (
+                      <div key={reply.id} className="flex gap-2 mb-3">
+                        <img 
+                          src={reply.user.avatar} 
+                          alt={reply.user.name}
+                          className="w-6 h-6 rounded-full"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium text-xs text-white">{reply.user.name}</span>
+                            <span className="text-white/50 text-[10px]">{reply.timestamp}</span>
+                          </div>
+                          <p className="text-xs mt-0.5 text-white">{reply.text}</p>
+                          <div className="flex items-center gap-3 mt-1">
+                            <button 
+                              onClick={() => handleReplyLike(reply.id)}
+                              className={`flex items-center gap-1 text-[10px] transition-colors ${
+                                likedReplies[reply.id] ? 'text-red-500' : 'text-white/70 hover:text-white'
+                              }`}
+                            >
+                              <span>{likedReplies[reply.id] ? '❤️' : '🤍'}</span>
+                              <span>{replyLikes[reply.id] || reply.likes}</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Show/Hide Replies Button */}
+                    <button 
+                      onClick={() => toggleReplies(comment.id)}
+                      className="text-blue-400 text-xs hover:text-blue-300 transition-colors"
+                    >
+                      {expandedReplies[comment.id] ? 'Hide replies' : 'Show replies'}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           ))}

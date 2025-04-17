@@ -1,94 +1,139 @@
 'use client';
 
-import BottomNav from '@/components/ui/BottomNav';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import BottomNav from '@/components/ui/BottomNav';
 
-export default function CreatePage() {
-  const [isDragging, setIsDragging] = useState(false);
+export default function AuthPage() {
+  const [isLogin, setIsLogin] = useState(true);
+  const [isCreator, setIsCreator] = useState(false);
+  const router = useRouter();
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // TODO: Implement actual authentication
+    router.push('/foryou');
+  };
 
   return (
-    <div className="h-screen bg-black text-white flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-center p-4 border-b border-gray-800 relative">
-        <h1 className="text-lg font-semibold">Create Post</h1>
-        <button className="text-blue-500 font-medium absolute right-4">
-          Post
-        </button>
-      </div>
-
+    <div className="min-h-screen bg-black text-white flex flex-col">
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-4">
-        {/* Upload Area */}
-        <div 
-          className={`w-full aspect-video rounded-xl border-2 border-dashed flex flex-col items-center justify-center mb-4 transition-colors
-            ${isDragging ? 'border-blue-500 bg-blue-500/10' : 'border-gray-700'}`}
-          onDragEnter={() => setIsDragging(true)}
-          onDragLeave={() => setIsDragging(false)}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={(e) => {
-            e.preventDefault();
-            setIsDragging(false);
-          }}
-        >
-          <span className="text-4xl mb-2">📹</span>
-          <p className="text-white/70 text-sm">Drag and drop video here</p>
-          <p className="text-white/50 text-xs mt-1">or tap to upload</p>
-        </div>
-
-        {/* Title Input */}
-        <div className="mb-4">
-          <input 
-            type="text" 
-            placeholder="Write a title..."
-            className="w-full bg-transparent border-b border-gray-800 pb-2 text-lg font-medium placeholder-white/50 focus:outline-none focus:border-blue-500"
-          />
-        </div>
-
-        {/* Description Input */}
-        <div className="mb-4">
-          <textarea 
-            placeholder="Add a description..."
-            className="w-full bg-transparent border-b border-gray-800 pb-2 text-sm placeholder-white/50 focus:outline-none focus:border-blue-500 resize-none"
-            rows={3}
-          />
-        </div>
-
-        {/* Additional Options */}
-        <div className="space-y-4">
-          {/* Location */}
-          <div className="flex items-center gap-2 text-white/70">
-            <span className="text-xl">📍</span>
-            <input 
-              type="text" 
-              placeholder="Add location"
-              className="flex-1 bg-transparent placeholder-white/50 focus:outline-none"
-            />
+      <div className="flex-1 flex flex-col items-center justify-center px-6 pb-16">
+        <div className="w-full max-w-md space-y-8">
+          {/* Logo/Title */}
+          <div className="text-center">
+            <h1 className="text-3xl font-bold mb-2">Welcome to QuickNews</h1>
+            <p className="text-white/70">
+              {isLogin ? 'Log in to your account' : 'Create your account'}
+            </p>
           </div>
 
-          {/* Tags */}
-          <div className="flex items-center gap-2 text-white/70">
-            <span className="text-xl">🏷️</span>
-            <input 
-              type="text" 
-              placeholder="Add tags"
-              className="flex-1 bg-transparent placeholder-white/50 focus:outline-none"
-            />
+          {/* Toggle Buttons */}
+          <div className="flex space-x-4 mb-8">
+            <button
+              onClick={() => setIsLogin(true)}
+              className={`flex-1 py-2 rounded-full transition-colors ${
+                isLogin ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'
+              }`}
+            >
+              Log In
+            </button>
+            <button
+              onClick={() => setIsLogin(false)}
+              className={`flex-1 py-2 rounded-full transition-colors ${
+                !isLogin ? 'bg-blue-500 text-white' : 'bg-white/10 text-white/70'
+              }`}
+            >
+              Register
+            </button>
           </div>
 
-          {/* Visibility */}
-          <div className="flex items-center gap-2 text-white/70">
-            <span className="text-xl">👁️</span>
-            <select className="flex-1 bg-transparent focus:outline-none">
-              <option value="public">Public</option>
-              <option value="friends">Friends</option>
-              <option value="private">Private</option>
-            </select>
+          {/* Creator Toggle */}
+          <div className="flex items-center justify-center space-x-2 mb-8">
+            <span className="text-white/70">Sign up as a creator</span>
+            <button
+              onClick={() => setIsCreator(!isCreator)}
+              className={`w-12 h-6 rounded-full transition-colors ${
+                isCreator ? 'bg-blue-500' : 'bg-white/10'
+              }`}
+            >
+              <div
+                className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
+                  isCreator ? 'translate-x-7' : 'translate-x-1'
+                }`}
+              />
+            </button>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <input
+                type="text"
+                placeholder="Username"
+                className="w-full px-4 py-3 rounded-lg bg-white/10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            )}
+            <input
+              type="email"
+              placeholder="Email"
+              className="w-full px-4 py-3 rounded-lg bg-white/10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <input
+              type="password"
+              placeholder="Password"
+              className="w-full px-4 py-3 rounded-lg bg-white/10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            {!isLogin && (
+              <input
+                type="password"
+                placeholder="Confirm Password"
+                className="w-full px-4 py-3 rounded-lg bg-white/10 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            )}
+            <button
+              type="submit"
+              className="w-full py-3 rounded-lg bg-blue-500 text-white font-medium hover:bg-blue-600 transition-colors"
+            >
+              {isLogin ? 'Log In' : 'Create Account'}
+            </button>
+          </form>
+
+          {/* Additional Links */}
+          <div className="text-center space-y-2">
+            {isLogin ? (
+              <>
+                <Link href="/forgot-password" className="text-blue-400 hover:text-blue-300 block">
+                  Forgot your password?
+                </Link>
+                <p className="text-white/70">
+                  Don't have an account?{' '}
+                  <button
+                    onClick={() => setIsLogin(false)}
+                    className="text-blue-400 hover:text-blue-300"
+                  >
+                    Sign up
+                  </button>
+                </p>
+              </>
+            ) : (
+              <p className="text-white/70">
+                Already have an account?{' '}
+                <button
+                  onClick={() => setIsLogin(true)}
+                  className="text-blue-400 hover:text-blue-300"
+                >
+                  Log in
+                </button>
+              </p>
+            )}
           </div>
         </div>
       </div>
 
       {/* Bottom Navigation */}
-      <div className="border-t border-gray-800">
+      <div className="fixed bottom-0 left-0 right-0 border-t border-gray-800">
         <BottomNav />
       </div>
     </div>

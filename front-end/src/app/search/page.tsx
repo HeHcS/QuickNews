@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import BottomNav from '@/components/ui/BottomNav';
 import Link from 'next/link';
 
@@ -143,6 +143,76 @@ const searchResults = [
 
 export default function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const categoriesRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [selectedCategory, setSelectedCategory] = useState<string>('');
+
+  // Filter results based on search query
+  const filteredResults = searchResults.filter(result => 
+    result.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    result.handle.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Show dropdown when typing
+  useEffect(() => {
+    setShowDropdown(searchQuery.length > 0);
+  }, [searchQuery]);
+
+  // Handle touch events for swipeable categories
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (categoriesRef.current) {
+      setIsDragging(true);
+      setStartX(e.clientX);
+      setScrollLeft(categoriesRef.current.scrollLeft);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !categoriesRef.current) return;
+    e.preventDefault();
+    const x = e.clientX;
+    const walk = (x - startX) * 2; // Scroll speed multiplier
+    categoriesRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (categoriesRef.current) {
+      setIsDragging(true);
+      setStartX(e.touches[0].clientX);
+      setScrollLeft(categoriesRef.current.scrollLeft);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || !categoriesRef.current) return;
+    const x = e.touches[0].clientX;
+    const walk = (x - startX) * 2; // Scroll speed multiplier
+    categoriesRef.current.scrollLeft = scrollLeft - walk;
+  };
+
+  const handleCategoryClick = (category: string) => {
+    setSelectedCategory(category);
+  };
 
   return (
     <main className="h-screen bg-black text-white flex flex-col overflow-hidden">
@@ -154,7 +224,7 @@ export default function SearchPage() {
             <span className="text-lg">←</span>
           </Link>
           <div className="flex-1">
-            <div className="relative">
+            <div className="relative" ref={dropdownRef}>
               <input
                 type="text"
                 value={searchQuery}
@@ -165,21 +235,67 @@ export default function SearchPage() {
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50">
                 🔍
               </span>
+              
+              {/* Search Dropdown */}
+              {showDropdown && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-[#424242] rounded-xl overflow-hidden shadow-lg max-h-[300px] overflow-y-auto scrollbar-hide">
+                  {filteredResults.length > 0 ? (
+                    filteredResults.map((result) => (
+                      <Link 
+                        href={`/profile/${result.handle}`} 
+                        key={result.id}
+                        className="flex items-center gap-3 p-3 hover:bg-white/10 transition-colors"
+                      >
+                        <img
+                          src={result.avatar}
+                          alt={result.name}
+                          className="w-10 h-10 rounded-full"
+                        />
+                        <div className="flex flex-col">
+                          <h3 className="text-sm font-medium">{result.name}</h3>
+                          <p className="text-xs text-white/70">{result.handle}</p>
+                        </div>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="p-4 text-center text-white/70">
+                      No results found (｡•́︿•̀｡)
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
 
         {/* Categories */}
-        <div className="px-4 pb-2 overflow-x-auto scrollbar-hide">
-          <div className="flex gap-2">
-            {categories.map((category) => (
-              <button
-                key={category.name}
-                className="px-4 py-1 bg-[#424242] rounded-full text-xs text-white/90 whitespace-nowrap"
-              >
-                {category.name}
-              </button>
-            ))}
+        <div className="flex flex-col items-center w-full">
+          <div className="w-4/5">
+            <div 
+              ref={categoriesRef}
+              onMouseDown={handleMouseDown}
+              onMouseUp={handleMouseUp}
+              onMouseMove={handleMouseMove}
+              onMouseLeave={handleMouseUp}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleMouseUp}
+              className="flex overflow-x-auto scrollbar-hide py-1"
+            >
+              {categories.map((category) => (
+                <button
+                  key={category.name}
+                  onClick={() => handleCategoryClick(category.name)}
+                  className={`whitespace-nowrap text-sm px-3 py-1 rounded-full mr-2 ${
+                    selectedCategory === category.name
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -193,18 +309,31 @@ export default function SearchPage() {
           {searchResults.map((result) => (
             <div
               key={result.id}
-              className="aspect-square rounded-xl p-3 flex flex-col justify-end"
+              className="aspect-square rounded-xl p-3 flex flex-col justify-end relative overflow-hidden"
               style={{ backgroundColor: result.color }}
             >
-              <div className="flex items-center gap-2">
-                <img
-                  src={result.avatar}
-                  alt={result.name}
-                  className="w-8 h-8 rounded-full"
-                />
+              {/* Black gradient overlay */}
+              <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black to-transparent"></div>
+              
+              <div className="flex items-center gap-1 relative z-10">
+                <Link 
+                  href={`/@${result.handle.replace('@', '')}`}
+                  className="hover:opacity-90 transition-opacity"
+                >
+                  <img
+                    src={result.avatar}
+                    alt={result.name}
+                    className="w-8 h-8 rounded-full"
+                  />
+                </Link>
                 <div className="flex flex-col gap-0.5">
-                  <h3 className="text-[8px] font-semibold leading-tight truncate">{result.name}</h3>
-                  <button className="bg-white/20 hover:bg-white/30 rounded-full px-2 py-0.5 text-[8px] font-medium transition-colors w-12">
+                  <Link 
+                    href={`/@${result.handle.replace('@', '')}`}
+                    className="hover:opacity-90 transition-opacity"
+                  >
+                    <h3 className="text-[6px] font-semibold leading-tight truncate">{result.name}</h3>
+                  </Link>
+                  <button className="bg-white/20 hover:bg-white/30 rounded-full px-1.5 py-0.5 text-[6px] font-medium transition-colors w-10 border-2 border-blue-300">
                     Follow
                   </button>
                 </div>

@@ -5,9 +5,9 @@ import { useInView } from 'react-intersection-observer';
 import TopNav from './TopNav';
 import BottomNav from './BottomNav';
 import Comments from './Comments';
-import { usePathname, useRouter } from 'next/navigation';
-import axios from 'axios';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import ArticlePopup from './ArticlePopup';
+import Link from 'next/link';
 
 interface Video {
   id: string;
@@ -44,6 +44,111 @@ interface VideoFeedProps {
   limit?: number;
 }
 
+// Sample videos data
+const sampleVideos: { [key: string]: Video[] } = {
+  Breaking: [
+    {
+      id: 'breaking-1',
+      videoFile: '/VidAssets/bbcnewsvideo1.mp4',
+      title: 'Breaking: Latest News Update 📰',
+      creator: {
+        name: 'BBC News',
+        avatar: 'https://picsum.photos/seed/bbc1/100/100',
+      },
+      likes: 1234,
+      comments: 89
+    }
+  ],
+  Following: [
+    {
+      id: 'following-1',
+      videoFile: '/VidAssets/dylanpagevideo1.mp4',
+      title: 'From Your Favorite Creator 🌟',
+      creator: {
+        name: 'Dylan Page',
+        avatar: 'https://picsum.photos/seed/dylan1/100/100',
+      },
+      likes: 2345,
+      comments: 156
+    }
+  ],
+  'For You': [
+    {
+      id: 'foryou-1',
+      videoFile: '/VidAssets/dailymailvideo1.mp4',
+      title: 'Daily Mail Latest 📰',
+      creator: {
+        name: 'Daily Mail',
+        avatar: 'https://picsum.photos/seed/dailymail1/100/100',
+      },
+      likes: 1234,
+      comments: 89
+    },
+    {
+      id: 'foryou-2',
+      videoFile: '/VidAssets/dylanpagevideo2.mp4',
+      title: 'Dylan Page Latest 🎬',
+      creator: {
+        name: 'Dylan Page',
+        avatar: 'https://picsum.photos/seed/dylan2/100/100',
+      },
+      likes: 2345,
+      comments: 156
+    },
+    {
+      id: 'foryou-3',
+      videoFile: '/VidAssets/dailymailvideo2.mp4',
+      title: 'Daily Mail Update 📽️',
+      creator: {
+        name: 'Daily Mail',
+        avatar: 'https://picsum.photos/seed/dailymail2/100/100',
+      },
+      likes: 3456,
+      comments: 234
+    }
+  ],
+  Politics: [
+    {
+      id: 'politics-1',
+      videoFile: '/VidAssets/bbcnewsvideo1.mp4',
+      title: 'Latest Political Update 🏛️',
+      creator: {
+        name: 'BBC News',
+        avatar: 'https://picsum.photos/seed/bbc2/100/100',
+      },
+      likes: 3456,
+      comments: 234
+    }
+  ],
+  Tech: [
+    {
+      id: 'tech-1',
+      videoFile: '/VidAssets/dylanpagevideo1.mp4',
+      title: 'Latest Tech Innovation 💻',
+      creator: {
+        name: 'Dylan Page',
+        avatar: 'https://picsum.photos/seed/dylan3/100/100',
+      },
+      likes: 5678,
+      comments: 342
+    }
+  ],
+  Business: [
+    {
+      id: 'business-1',
+      videoFile: '/VidAssets/dailymailvideo2.mp4',
+      title: 'Business Insights 📈',
+      creator: {
+        name: 'Daily Mail',
+        avatar: 'https://picsum.photos/seed/dailymail3/100/100',
+      },
+      likes: 4567,
+      comments: 278
+    }
+  ]
+};
+
+// Sample comments data
 const sampleComments: { [key: string]: Array<{
   id: string;
   user: { name: string; avatar: string };
@@ -291,20 +396,33 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     <div ref={ref} className="relative w-full h-full snap-start bg-black">
       {/* Video Layer */}
       <div 
-        className="absolute inset-0 cursor-pointer" 
+        className="absolute inset-0" 
+      >
+        <div
+          className="absolute inset-0"
         onClick={(e) => {
+            const target = e.target as HTMLElement;
+            // Don't toggle video if clicking on interactive elements or their children
+            if (
+              target.closest('a') ||
+              target.closest('button') ||
+              target.closest('.interactive-element')
+            ) {
+              return;
+            }
           e.stopPropagation();
           e.preventDefault();
           togglePlay(e);
         }}
       >
-      <video
-        ref={videoRef}
-        src={video.videoFile} // Directly use the videoFile URL from the database
-        loop
-        playsInline
-        className="absolute inset-0 w-full h-full object-contain bg-black"
+        <video
+          ref={videoRef}
+            src={video.videoFile}
+          loop
+          playsInline
+            className="absolute inset-0 w-full h-full object-contain bg-black"
         />
+        </div>
         {/* Bottom Gradient Overlay */}
         <div 
           className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent transition-all duration-500 ease-in-out ${
@@ -314,9 +432,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       </div>
       
       {/* Video Info Overlay */}
-      <div className="absolute inset-0 pointer-events-none z-20">
+      <div className="absolute inset-0 z-20">
         {/* Captions Section */}
-        <div className="absolute bottom-[112px] left-0 right-[50px] p-4 text-white pointer-events-auto">
+        <div className="absolute bottom-[112px] left-0 right-[50px] p-4 text-white">
           <h2 className="text-xl font-bold mb-3 -mr-[50px]">{videoContent.title}</h2>
           <div className="relative">
             <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
@@ -331,7 +449,6 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 <button 
                   onClick={(e) => {
                     e.stopPropagation();
-                    e.preventDefault();
                     setIsCaptionsExpanded(!isCaptionsExpanded);
                   }}
                   className="text-blue-400 text-xs font-medium hover:text-blue-300 transition-all duration-500 ease-in-out"
@@ -344,17 +461,35 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
         </div>
 
         <div className="absolute bottom-[70px] left-0 right-0 p-2.5 text-white">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between interactive-element">
             <div className="flex items-center gap-2">
-          <img
-            src={video.creator.avatar || '/default-avatar.png'}
-            alt={video.creator.name}
+              <Link
+                href={`/@${video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
+                className="hover:opacity-90 transition-opacity z-30"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  localStorage.setItem('lastVideoId', video.id);
+                }}
+              >
+              <img
+                src={video.creator.avatar || '/default-avatar.png'}
+                alt={video.creator.name}
                 className="w-10 h-10 rounded-full border border-white/20"
               />
+              </Link>
+              <Link
+                href={`/@${video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
+                className="hover:opacity-90 transition-opacity z-30 block"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  localStorage.setItem('lastVideoId', video.id);
+                }}
+              >
               <div>
-                <h3 className="font-semibold text-sm leading-tight">{video.creator.name}</h3>
-                <h4 className="text-white/70 text-[10px] leading-tight">@{video.creator.name.toLowerCase().replace(/\s+/g, '')}</h4>
+                  <h3 className="font-semibold text-sm leading-tight hover:text-blue-400 transition-colors">{video.creator.name}</h3>
+                  <h4 className="text-white/70 text-[10px] leading-tight hover:text-blue-400 transition-colors">@{video.creator.name.toLowerCase().replace(/\s+/g, '')}</h4>
               </div>
+              </Link>
               <button 
                 onClick={(e) => {
                   e.stopPropagation();
@@ -376,7 +511,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
               Full Article
             </button>
           </div>
-      </div>
+        </div>
 
         {/* Engagement Buttons */}
         <div className="absolute bottom-[160px] right-4 flex flex-col space-y-4 pointer-events-auto">
@@ -428,8 +563,8 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
             </div>
           </div>
         )}
-        </div>
       </div>
+    </div>
   );
 }
 
@@ -445,6 +580,9 @@ export default function VideoFeed() {
   const [error, setError] = useState<string | null>(null);
   const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const feedRef = useRef<HTMLDivElement>(null);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   
   // Define categories in the same order as TopNav
   const categories = ['Breaking', 'Politics', 'For You', 'Tech', 'Business', 'Following'];
@@ -454,72 +592,20 @@ export default function VideoFeed() {
     pathname.slice(1).charAt(0).toUpperCase() + pathname.slice(2);
 
   useEffect(() => {
-    const fetchVideos = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Only send category if it's a valid MongoDB ObjectId
-        const params = currentCategory === 'For You' ? {} : 
-          /^[0-9a-fA-F]{24}$/.test(currentCategory) ? { category: currentCategory } : {};
-        
-        console.log('Fetching videos with params:', params);
-        console.log('Current category:', currentCategory);
-        
-        // Fetch videos from backend
-        const response = await axios.get('http://localhost:5000/api/videos/feed', {
-          params,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
-        });
-
-        console.log('Raw video feed response:', response.data);
-
-        // Check if response has the videos array
-        if (response.data && Array.isArray(response.data.videos)) {
-          // Map the response to include full video URLs
-          const videosWithUrls = response.data.videos.map((video: any) => ({
-            ...video,
-            videoFile: `http://localhost:5000/api/videos/${video._id}/stream`
-          }));
-          setVideos(videosWithUrls);
-        } else {
-          throw new Error('Invalid response format from server');
-        }
-      } catch (err: any) {
-        let errorMessage = 'Failed to fetch videos';
-        
-        if (err.code === 'ECONNABORTED') {
-          errorMessage = 'Request timed out. Please check your connection.';
-        } else if (err.response) {
-          // Server responded with error
-          errorMessage = err.response.data?.message || `Server error: ${err.response.status}`;
-          console.log('Server error response:', err.response.data);
-        } else if (err.request) {
-          // Request made but no response
-          errorMessage = 'Could not connect to server. Please check if the server is running.';
-          console.log('No response received:', err.request);
-        } else {
-          // Other errors
-          errorMessage = err.message || 'An unexpected error occurred';
-          console.log('Other error:', err);
-        }
-        
-        setError(errorMessage);
-        console.error('Error fetching videos:', {
-          code: err.code,
-          status: err.response?.status,
-          message: errorMessage,
-          error: err
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchVideos();
+    // Instead of fetching from server, use sample videos
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      // Get videos for current category
+      const categoryVideos = sampleVideos[currentCategory] || [];
+      setVideos(categoryVideos);
+    } catch (err: any) {
+      setError('Failed to load videos');
+      console.error('Error loading videos:', err);
+    } finally {
+      setIsLoading(false);
+    }
   }, [currentCategory]);
 
   // Add debug log for videos state changes
@@ -532,6 +618,20 @@ export default function VideoFeed() {
     console.log('Loading state:', isLoading);
   }, [isLoading]);
 
+  useEffect(() => {
+    const videoId = searchParams.get('v');
+    if (videoId) {
+      const videoIndex = videos.findIndex(v => v.id === videoId);
+      if (videoIndex !== -1) {
+        setCurrentVideoIndex(videoIndex);
+        const videoElement = document.getElementById(`video-${videoId}`);
+        if (videoElement) {
+          videoElement.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+    }
+  }, [searchParams, videos]);
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (hasOpenComments || hasOpenArticle) return; // Prevent scrolling when comments or article are open
     const element = e.currentTarget;
@@ -543,7 +643,7 @@ export default function VideoFeed() {
 
   const handleCategoryChange = (newIndex: number) => {
     if (hasOpenComments || hasOpenArticle) return; // Prevent category change if comments or article are open
-  
+    
     const currentIndex = categories.indexOf(currentCategory);
     
     if (newIndex !== currentIndex) {
@@ -689,21 +789,28 @@ export default function VideoFeed() {
           </div>
         ) : (
           videos.map((video, index) => (
-            <VideoPost
+            <div
               key={video.id}
-              video={video}
-              isActive={index === activeVideoIndex}
-              isCommentsOpen={hasOpenComments}
-              onCommentsOpenChange={setHasOpenComments}
-              isArticleOpen={hasOpenArticle}
-              onArticleOpenChange={setHasOpenArticle}
-            />
+              id={`video-${video.id}`}
+              className={`relative w-full h-screen snap-start ${
+                index === currentVideoIndex ? 'z-10' : 'z-0'
+              }`}
+            >
+          <VideoPost
+            video={video}
+            isActive={index === activeVideoIndex}
+            isCommentsOpen={hasOpenComments}
+            onCommentsOpenChange={setHasOpenComments}
+            isArticleOpen={hasOpenArticle}
+            onArticleOpenChange={setHasOpenArticle}
+          />
+            </div>
           ))
         )}
       </div>
 
       {/* Bottom Navigation */}
-      <div style={{ pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto' }}>
+      <div className="fixed bottom-0 left-0 right-0 z-50" style={{ pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto' }}>
         <BottomNav />
       </div>
 
