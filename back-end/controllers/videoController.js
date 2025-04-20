@@ -114,6 +114,59 @@ export const getVideoFeed = async (req, res) => {
           { $sort: { createdAt: -1 } },
           { $skip: skip },
           { $limit: limit },
+          // Lookup likes count
+          {
+            $lookup: {
+              from: 'likes',
+              let: { videoId: '$_id' },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ['$content', '$$videoId'] },
+                        { $eq: ['$contentType', 'Video'] }
+                      ]
+                    }
+                  }
+                }
+              ],
+              as: 'likesInfo'
+            }
+          },
+          // Add likes count field
+          {
+            $addFields: {
+              likes: { $size: '$likesInfo' }
+            }
+          },
+          // Lookup comments count
+          {
+            $lookup: {
+              from: 'comments',
+              let: { videoId: '$_id' },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ['$content', '$$videoId'] },
+                        { $eq: ['$contentType', 'Video'] },
+                        { $eq: ['$parentComment', null] }  // Only count top-level comments
+                      ]
+                    }
+                  }
+                }
+              ],
+              as: 'commentsInfo'
+            }
+          },
+          // Add comments count field
+          {
+            $addFields: {
+              comments: { $size: '$commentsInfo' }
+            }
+          },
           {
             $lookup: {
               from: 'users',
@@ -155,13 +208,41 @@ export const getVideoFeed = async (req, res) => {
               as: 'bookmarkInfo'
             }
           },
+          // Check if current user has liked the video
+          {
+            $lookup: {
+              from: 'likes',
+              let: { videoId: '$_id' },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ['$content', '$$videoId'] },
+                        { $eq: ['$contentType', 'Video'] },
+                        { $eq: ['$user', mongoose.Types.ObjectId(userId)] }
+                      ]
+                    }
+                  }
+                }
+              ],
+              as: 'userLikeInfo'
+            }
+          },
           {
             $addFields: {
               userBookmarked: { $gt: [{ $size: '$bookmarkInfo' }, 0] },
-              // Add more user-specific fields as needed
+              userLiked: { $gt: [{ $size: '$userLikeInfo' }, 0] }
             }
           },
-          { $project: { bookmarkInfo: 0 } }
+          { 
+            $project: { 
+              bookmarkInfo: 0,
+              likesInfo: 0,
+              userLikeInfo: 0,
+              commentsInfo: 0
+            } 
+          }
         ]);
         
         // Get total count for pagination
@@ -187,8 +268,95 @@ export const getVideoFeed = async (req, res) => {
       }
     }
     
-    // For anonymous users or if aggregation failed, use the simpler query
-    const videos = await feedQuery.exec();
+    // For anonymous users or if aggregation failed, use the simpler query with likes count
+    const videos = await Video.aggregate([
+      { $match: query },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      // Lookup likes count
+      {
+        $lookup: {
+          from: 'likes',
+          let: { videoId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$content', '$$videoId'] },
+                    { $eq: ['$contentType', 'Video'] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'likesInfo'
+        }
+      },
+      // Add likes count field
+      {
+        $addFields: {
+          likes: { $size: '$likesInfo' }
+        }
+      },
+      // Lookup comments count
+      {
+        $lookup: {
+          from: 'comments',
+          let: { videoId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$content', '$$videoId'] },
+                    { $eq: ['$contentType', 'Video'] },
+                    { $eq: ['$parentComment', null] }  // Only count top-level comments
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'commentsInfo'
+        }
+      },
+      // Add comments count field
+      {
+        $addFields: {
+          comments: { $size: '$commentsInfo' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'creator',
+          foreignField: '_id',
+          as: 'creator'
+        }
+      },
+      { 
+        $unwind: {
+          path: '$creator',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'categories',
+          foreignField: '_id',
+          as: 'categories'
+        }
+      },
+      { 
+        $project: { 
+          likesInfo: 0,
+          commentsInfo: 0
+        } 
+      }
+    ]);
+
     const total = await Video.countDocuments(query);
     
     const responseData = {

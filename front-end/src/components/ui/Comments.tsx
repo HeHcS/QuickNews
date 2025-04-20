@@ -1,20 +1,25 @@
 import React, { useEffect } from 'react';
 
 interface Comment {
-  id: string;
-  user: { name: string; avatar: string };
+  _id: string;
+  user: {
+    name: string;
+    profilePicture: string;
+  };
   text: string;
   likes: number;
-  timestamp: string;
+  createdAt: string;
+  repliesCount: number;
 }
 
 interface CommentsProps {
   isOpen: boolean;
   onClose: () => void;
   comments: Comment[];
+  isLoading?: boolean;
 }
 
-export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
+export default function Comments({ isOpen, onClose, comments, isLoading = false }: CommentsProps) {
   useEffect(() => {
     if (isOpen) {
       // Prevent scrolling on the body when comments are open
@@ -34,15 +39,27 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
     e.stopPropagation();
   };
 
+  if (isLoading) {
+    return (
+      <div className={`fixed inset-0 z-[9999] flex items-end justify-center transition-opacity duration-300 ${
+        isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}>
+        <div className={`w-[360px] tall-screen:w-[720px] h-[70vh] bg-black rounded-t-2xl transform transition-all duration-300 ease-out flex flex-col items-center justify-center ${
+          isOpen ? 'translate-y-0' : 'translate-y-full'
+        }`}>
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
+          <p className="text-white/70 mt-4">Loading comments...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div 
       className={`fixed inset-0 z-[9999] flex items-end justify-center transition-opacity duration-300 ${
         isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClose();
-      }}
+      onClick={onClose}
     >
       <div 
         className={`w-[360px] tall-screen:w-[720px] h-[70vh] bg-black rounded-t-2xl transform transition-all duration-300 ease-out flex flex-col ${
@@ -72,16 +89,16 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
         {/* Comments List */}
         <div className="flex-1 overflow-y-auto">
           {comments.map((comment) => (
-            <div key={comment.id} className="flex gap-3 p-3 hover:bg-white/5">
+            <div key={comment._id} className="flex gap-3 p-3 hover:bg-white/5">
               <img 
-                src={comment.user.avatar} 
+                src={comment.user.profilePicture} 
                 alt={comment.user.name}
                 className="w-10 h-10 rounded-full"
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span className="font-semibold text-sm text-white">{comment.user.name}</span>
-                  <span className="text-white/50 text-xs">{comment.timestamp}</span>
+                  <span className="text-white/50 text-xs">{comment.createdAt}</span>
                 </div>
                 <p className="text-sm mt-1 text-white">{comment.text}</p>
                 <div className="flex items-center gap-4 mt-2">
@@ -89,14 +106,17 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
                     <span>❤️</span>
                     <span>{comment.likes}</span>
                   </button>
-                  <button className="text-white/70 hover:text-white text-xs">💬 Reply</button>
+                  <button className="flex items-center gap-1 text-white/70 hover:text-white text-xs">
+                    <span>💬</span>
+                    <span>{comment.repliesCount}</span>
+                  </button>
                 </div>
               </div>
             </div>
           ))}
         </div>
 
-        {/* Comment Input - Now sticky at the bottom */}
+        {/* Comment Input */}
         <div className="sticky bottom-0 p-3 border-t border-gray-800 bg-black/50 backdrop-blur-sm">
           <div className="flex gap-2">
             <input 

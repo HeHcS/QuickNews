@@ -11,23 +11,32 @@ import ArticlePopup from './ArticlePopup';
 
 interface Video {
   id: string;
-  videoFile: string;  // This will be the full URL from the database
+  videoFile: string;
   title: string;
+  description: string;
+  likes: number;
+  comments: number;
   creator: {
     name: string;
     avatar?: string;
   };
-  likes: number;
-  comments: number;
   headline?: {
     text: string;
     source: string;
     timestamp: string;
   };
-  captions?: {
-    title: string;
-    text: string;
+}
+
+interface Comment {
+  _id: string;
+  user: {
+    name: string;
+    profilePicture: string;
   };
+  text: string;
+  likes: number;
+  createdAt: string;
+  repliesCount: number;
 }
 
 interface VideoPostProps {
@@ -43,142 +52,6 @@ interface VideoFeedProps {
   page?: number;
   limit?: number;
 }
-
-const sampleComments: { [key: string]: Array<{
-  id: string;
-  user: { name: string; avatar: string };
-  text: string;
-  likes: number;
-  timestamp: string;
-}> } = {
-  'foryou-1': [
-    {
-      id: '1',
-      user: {
-        name: 'Alice Chen',
-        avatar: 'https://picsum.photos/seed/alice/100/100',
-      },
-      text: 'This is amazing! The cinematography is on another level 🔥 Been waiting for content like this!',
-      likes: 842,
-      timestamp: '2h ago',
-    },
-    {
-      id: '2',
-      user: {
-        name: 'Bob Smith',
-        avatar: 'https://picsum.photos/seed/bob/100/100',
-      },
-      text: 'The lighting in this shot is perfect 👏 What camera setup did you use?',
-      likes: 324,
-      timestamp: '1h ago',
-    }
-  ],
-  'foryou-2': [
-    {
-      id: '1',
-      user: {
-        name: 'Michael Brown',
-        avatar: 'https://picsum.photos/seed/michael/100/100',
-      },
-      text: 'First time seeing your content and I\'m already hooked! 🎬 Instant follow!',
-      likes: 423,
-      timestamp: '1h ago',
-    },
-    {
-      id: '2',
-      user: {
-        name: 'Sophie Taylor',
-        avatar: 'https://picsum.photos/seed/sophie/100/100',
-      },
-      text: 'The way you transition between scenes is so smooth ✨ Need a tutorial on this!',
-      likes: 267,
-      timestamp: '45m ago',
-    }
-  ],
-  'foryou-3': [
-    {
-      id: '1',
-      user: {
-        name: 'Emma Watson',
-        avatar: 'https://picsum.photos/seed/emma/100/100',
-      },
-      text: '0:45 is literally the best part! Had to watch it multiple times 😍',
-      likes: 567,
-      timestamp: '45m ago',
-    },
-    {
-      id: '2',
-      user: {
-        name: 'David Kim',
-        avatar: 'https://picsum.photos/seed/david/100/100',
-      },
-      text: 'Been following your work for months, and you keep getting better! Any tips for aspiring creators?',
-      likes: 231,
-      timestamp: '20m ago',
-    }
-  ],
-  'breaking-1': [
-    {
-      id: '1',
-      user: {
-        name: 'Sarah Johnson',
-        avatar: 'https://picsum.photos/seed/sarah/100/100',
-      },
-      text: '🎵 Does anyone know the background music? It\'s so good!',
-      likes: 142,
-      timestamp: '5m ago',
-    }
-  ],
-  'following-1': [
-    {
-      id: '1',
-      user: {
-        name: 'James Wilson',
-        avatar: 'https://picsum.photos/seed/james/100/100',
-      },
-      text: 'This gives me such nostalgic vibes 🌟 Reminds me of old school cinematography but with a modern twist',
-      likes: 189,
-      timestamp: '30m ago',
-    }
-  ],
-  'politics-1': [
-    {
-      id: '1',
-      user: {
-        name: 'Michael Brown',
-        avatar: 'https://picsum.photos/seed/michael/100/100',
-      },
-      text: 'First time seeing your content and I\'m already hooked! 🎬 Instant follow!',
-      likes: 423,
-      timestamp: '1h ago',
-    }
-  ],
-  'tech-1': [
-    {
-      id: '1',
-      user: {
-        name: 'Sophie Taylor',
-        avatar: 'https://picsum.photos/seed/sophie/100/100',
-      },
-      text: 'The future of tech is looking bright! 🚀',
-      likes: 345,
-      timestamp: '2h ago',
-    }
-  ],
-  'business-1': [
-    {
-      id: '1',
-      user: {
-        name: 'James Wilson',
-        avatar: 'https://picsum.photos/seed/james/100/100',
-      },
-      text: 'Great insights on market trends! 📈',
-      likes: 278,
-      timestamp: '1h ago',
-    }
-  ],
-  // Add more comments for other videos...
-};
 
 const generateVideoContent = (videoFile: string | undefined) => {
   if (!videoFile) {
@@ -234,9 +107,6 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     setIsLiked(false);
     setIsCaptionsExpanded(false);
   }, [video.id, isActive]);
-
-  // Generate content based on video file
-  const videoContent = generateVideoContent(video?.videoFile);
 
   // Early return if video data is invalid
   if (!video || !video.videoFile) {
@@ -300,7 +170,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       >
       <video
         ref={videoRef}
-        src={video.videoFile} // Directly use the videoFile URL from the database
+        src={video.videoFile}
         loop
         playsInline
         className="absolute inset-0 w-full h-full object-contain bg-black"
@@ -317,16 +187,16 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       <div className="absolute inset-0 pointer-events-none z-20">
         {/* Captions Section */}
         <div className="absolute bottom-[112px] left-0 right-[50px] p-4 text-white pointer-events-auto">
-          <h2 className="text-xl font-bold mb-3 -mr-[50px]">{videoContent.title}</h2>
+          <h2 className="text-xl font-bold mb-3 -mr-[50px]">{video.title}</h2>
           <div className="relative">
             <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
               isCaptionsExpanded ? 'h-auto' : 'h-[48px]'
             }`}>
               <p className="text-xs leading-relaxed">
-                {videoContent.text}
+                {video.description}
               </p>
             </div>
-            {videoContent.text.length > 150 && (
+            {video.description.length > 150 && (
               <div className="relative mt-1 bg-transparent">
                 <button 
                   onClick={(e) => {
@@ -443,6 +313,8 @@ export default function VideoFeed() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [videoComments, setVideoComments] = useState<{ [key: string]: Comment[] }>({});
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   
@@ -452,6 +324,48 @@ export default function VideoFeed() {
   // Determine current category based on pathname
   const currentCategory = pathname === '/' || pathname === '/foryou' ? 'For You' : 
     pathname.slice(1).charAt(0).toUpperCase() + pathname.slice(2);
+
+  // Add function to fetch comments
+  const fetchComments = async (videoId: string) => {
+    try {
+      setIsLoadingComments(true);
+      const response = await axios.get('http://localhost:5000/api/engagement/comments', {
+        params: {
+          contentId: videoId,
+          contentType: 'Video',
+          limit: 10
+        }
+      });
+
+      if (response.data && response.data.comments) {
+        setVideoComments(prev => ({
+          ...prev,
+          [videoId]: response.data.comments.map((comment: any) => ({
+            _id: comment._id,
+            user: {
+              name: comment.user.name,
+              profilePicture: comment.user.profilePicture || '/default-avatar.png'
+            },
+            text: comment.text,
+            likes: comment.likes || 0,
+            createdAt: new Date(comment.createdAt).toLocaleString(),
+            repliesCount: comment.repliesCount || 0
+          }))
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching comments:', err);
+    } finally {
+      setIsLoadingComments(false);
+    }
+  };
+
+  // Add effect to fetch comments when a video becomes active
+  useEffect(() => {
+    if (videos[activeVideoIndex] && hasOpenComments) {
+      fetchComments(videos[activeVideoIndex].id);
+    }
+  }, [activeVideoIndex, hasOpenComments]);
 
   useEffect(() => {
     const fetchVideos = async () => {
@@ -479,10 +393,19 @@ export default function VideoFeed() {
 
         // Check if response has the videos array
         if (response.data && Array.isArray(response.data.videos)) {
-          // Map the response to include full video URLs
+          // Map the response to include full video URLs and format the data
           const videosWithUrls = response.data.videos.map((video: any) => ({
-            ...video,
-            videoFile: `http://localhost:5000/api/videos/${video._id}/stream`
+            id: video._id,
+            videoFile: `http://localhost:5000/api/videos/${video._id}/stream`,
+            title: video.title || 'Untitled Video',
+            description: video.description || 'No description available',
+            likes: video.likes || 0,
+            comments: video.comments || 0,
+            creator: {
+              name: video.creator?.name || 'Anonymous',
+              avatar: video.creator?.avatar
+            },
+            headline: video.headline
           }));
           setVideos(videosWithUrls);
         } else {
@@ -712,7 +635,8 @@ export default function VideoFeed() {
         <Comments 
           isOpen={hasOpenComments}
           onClose={() => setHasOpenComments(false)}
-          comments={sampleComments[videos[activeVideoIndex].id] || []}
+          comments={videoComments[videos[activeVideoIndex].id] || []}
+          isLoading={isLoadingComments}
         />
       )}
 
