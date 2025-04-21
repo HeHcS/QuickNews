@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 interface ArticlePopupProps {
   isOpen: boolean;
@@ -8,14 +8,41 @@ interface ArticlePopupProps {
 }
 
 export default function ArticlePopup({ isOpen, onClose, title, content }: ArticlePopupProps) {
-  if (!isOpen) return null;
+  const [isVisible, setIsVisible] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setIsVisible(true);
+      setIsClosing(false);
+    } else if (isVisible) {
+      setIsClosing(true);
+      const timer = setTimeout(() => {
+        setIsVisible(false);
+      }, 300); // Match this with the transition duration
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, isVisible]);
+
+  if (!isVisible) return null;
+
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      onClose();
+    }, 300); // Match this with the transition duration
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
-      <div className="relative w-[360px] tall-screen:w-[720px] h-screen max-h-screen bg-[#0A0A0A]/80 backdrop-blur-sm text-white overflow-y-auto scrollbar-hide">
+    <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/80 transition-opacity duration-300 ${isClosing ? 'opacity-0' : 'opacity-100'}`}>
+      <div 
+        className={`relative w-auto h-screen max-h-screen aspect-[9/16] bg-[#0A0A0A]/80 backdrop-blur-sm text-white overflow-y-auto scrollbar-hide rounded-3xl transition-transform duration-300 ${
+          isClosing ? 'translate-y-full' : 'translate-y-0'
+        }`}
+      >
         {/* Back button - stays fixed */}
         <button 
-          onClick={onClose}
+          onClick={handleClose}
           className="fixed top-4 left-4 sm:left-4 z-50 flex items-center text-white/90 hover:text-white"
         >
           <span className="text-lg mr-2">←</span>
@@ -24,7 +51,7 @@ export default function ArticlePopup({ isOpen, onClose, title, content }: Articl
 
         <div className="px-4 pt-16">
           {/* Title */}
-          <h1 className="text-[28px] font-bold leading-tight mb-4">NATO on High Alert: Chief Warns of WWIII Risk as Putin's Threats Escalate</h1>
+          <h1 className="text-[28px] font-bold leading-tight mb-4">{title}</h1>
 
           {/* Source and date */}
           <div className="flex items-center justify-between mb-4">
@@ -60,7 +87,7 @@ export default function ArticlePopup({ isOpen, onClose, title, content }: Articl
             <section>
               <h2 className="text-[22px] font-bold mb-2">NATO's Unprecedented Warning</h2>
               <p className="text-[13px] leading-relaxed text-white/80">
-                NATO leadership has issued a grave warning to its member states, calling for immediate preparation for potential "wartime scenarios". This extraordinary alert comes as a direct response to heightened international tensions and concerning rhetoric about World War III.
+                {content}
               </p>
             </section>
 

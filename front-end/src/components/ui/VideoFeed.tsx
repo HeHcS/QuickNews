@@ -331,6 +331,8 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [animationPhase, setAnimationPhase] = useState<'idle' | 'phase1' | 'phase2'>('idle');
   const [isCaptionsExpanded, setIsCaptionsExpanded] = useState(false);
   const { ref, inView } = useInView({
     threshold: 0.7,
@@ -394,6 +396,45 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     }
   };
 
+  const toggleFollow = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    // Start animation sequence
+    setAnimationPhase('phase1');
+    
+    // After first phase, change the state
+    setTimeout(() => {
+      setIsFollowing(!isFollowing);
+      setAnimationPhase('phase2');
+      
+      // After second phase, reset to idle
+      setTimeout(() => {
+        setAnimationPhase('idle');
+      }, 300);
+    }, 200);
+  };
+
+  // Get animation classes based on current phase
+  const getAnimationClasses = () => {
+    if (animationPhase === 'idle') {
+      return isFollowing 
+        ? 'bg-white/20 text-white border border-white/30' 
+        : 'bg-[#29ABE2] text-white';
+    }
+    
+    if (animationPhase === 'phase1') {
+      return isFollowing
+        ? 'bg-[#29ABE2] text-white rotate-[-5deg] translate-x-[-2px]'
+        : 'bg-white/20 text-white border border-white/30 rotate-[5deg] translate-x-[2px]';
+    }
+    
+    // phase2
+    return isFollowing
+      ? 'bg-white/20 text-white border border-white/30 rotate-[5deg] translate-x-[2px]'
+      : 'bg-[#29ABE2] text-white rotate-[-5deg] translate-x-[-2px]';
+  };
+
   return (
     <div ref={ref} className="relative w-full h-full snap-start bg-black">
       {/* Video Layer */}
@@ -402,7 +443,29 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       >
         <div
           className="absolute inset-0"
-        onClick={(e) => {
+        >
+          <video
+            ref={videoRef}
+            src={video.videoFile}
+            loop
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover bg-black"
+          />
+        </div>
+        {/* Bottom Gradient Overlay */}
+        <div 
+          className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/95 via-black/60 to-transparent transition-all duration-500 ease-in-out ${
+            isCaptionsExpanded ? 'h-[300px]' : 'h-[200px]'
+          }`}
+        />
+      </div>
+      
+      {/* Video Info Overlay */}
+      <div className="absolute inset-0 z-20">
+        {/* Play/Pause Button - Center */}
+        <div 
+          className="absolute inset-0 flex items-center justify-center"
+          onClick={(e) => {
             const target = e.target as HTMLElement;
             // Don't toggle video if clicking on interactive elements or their children
             if (
@@ -412,53 +475,38 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
             ) {
               return;
             }
-          e.stopPropagation();
-          e.preventDefault();
-          togglePlay(e);
-        }}
-      >
-        <video
-          ref={videoRef}
-            src={video.videoFile}
-          loop
-          playsInline
-            className="absolute inset-0 w-full h-full object-contain bg-black"
-        />
+            togglePlay(e);
+          }}
+        >
+          {!isPlaying && (
+            <div className="w-16 h-16 flex items-center justify-center rounded-full bg-black/40 text-white cursor-pointer">
+              <Play size={32} />
+            </div>
+          )}
         </div>
-        {/* Bottom Gradient Overlay */}
-        <div 
-          className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent transition-all duration-500 ease-in-out ${
-            isCaptionsExpanded ? 'h-[300px]' : 'h-[200px]'
-          }`}
-        />
-      </div>
-      
-      {/* Video Info Overlay */}
-      <div className="absolute inset-0 z-20">
+
         {/* Captions Section */}
-        <div className="absolute bottom-[112px] left-0 right-[50px] p-4 text-white">
-          <h2 className="text-xl font-bold mb-3 -mr-[50px] select-none">{videoContent.title}</h2>
+        <div className="absolute bottom-[112px] left-0 right-[10px] p-4 text-white">
+          <h2 className="text-xl font-bold mb-0 select-none mt-[15px] max-w-[75%]">{videoContent.title}</h2>
           <div className="relative">
             <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
-              isCaptionsExpanded ? 'h-auto' : 'h-[48px]'
+              isCaptionsExpanded ? 'max-h-[500px] opacity-100 transform translate-y-0' : 'max-h-[3em] opacity-100 transform translate-y-0'
             }`}>
-              <p className="text-xs leading-relaxed select-none">
+              <p className={`text-xs leading-relaxed select-none max-w-[85%] text-gray-300 ${!isCaptionsExpanded ? 'line-clamp-2' : ''}`}>
                 {videoContent.text}
               </p>
             </div>
-            {videoContent.text.length > 150 && (
-              <div className="relative mt-1 bg-transparent">
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsCaptionsExpanded(!isCaptionsExpanded);
-                  }}
-                  className="text-[#29ABE2] text-xs font-medium hover:text-[#29ABE2]/80 transition-colors"
-                >
-                  {isCaptionsExpanded ? 'Show less' : 'Read more'}
-                </button>
-              </div>
-            )}
+            <div className="relative mt-1 bg-transparent">
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsCaptionsExpanded(!isCaptionsExpanded);
+                }}
+                className="text-[#29ABE2] text-xs font-medium hover:text-[#29ABE2]/80 transition-colors"
+              >
+                {isCaptionsExpanded ? 'Show less' : 'Read more'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -488,18 +536,33 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 }}
               >
               <div>
-                  <h3 className="font-semibold text-sm leading-tight hover:text-[#29ABE2] transition-colors">{video.creator.name}</h3>
+                  <h3 className="font-semibold text-sm leading-tight hover:text-[#29ABE2] transition-colors flex items-center gap-1">
+                    {video.creator.name}
+                    <span className="text-[#29ABE2]">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </span>
+                  </h3>
                   <h4 className="text-white/70 text-[10px] leading-tight hover:text-[#29ABE2] transition-colors">@{video.creator.name.toLowerCase().replace(/\s+/g, '')}</h4>
               </div>
               </Link>
               <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  e.preventDefault();
-                }}
-                className="pointer-events-auto px-3 py-1 bg-[#29ABE2] text-white text-xs font-medium rounded-full hover:bg-[#29ABE2]/80 transition-colors"
+                onClick={toggleFollow}
+                className={`pointer-events-auto px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-all duration-300 flex items-center gap-1 ${getAnimationClasses()}`}
               >
-                Subscribe
+                <div className="flex items-center gap-1">
+                  {isFollowing ? (
+                    <>
+                      <span>Followed</span>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </>
+                  ) : (
+                    'Follow'
+                  )}
+                </div>
               </button>
             </div>
             <button 
@@ -516,7 +579,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
         </div>
 
         {/* Engagement Buttons */}
-        <div className="absolute bottom-[160px] right-4 flex flex-col space-y-4 pointer-events-auto">
+        <div className="absolute right-4 top-[calc(50%+60px)] transform -translate-y-1/2 flex flex-col space-y-6 pointer-events-auto z-30">
           <div className="flex flex-col items-center">
             <button 
               onClick={(e) => {
@@ -524,13 +587,13 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.preventDefault();
                 setIsLiked(!isLiked);
               }}
-              className={`flex items-center space-x-2 ${
+              className={`flex items-center justify-center w-12 h-12 rounded-full ${
                 isLiked ? 'text-[#29ABE2]' : 'text-white'
               }`}
             >
-              {isLiked ? <Heart className="text-[#29ABE2] fill-[#29ABE2] scale-125 transform transition-transform duration-300" size={24} /> : <Heart className="text-white fill-white transform transition-transform duration-300" size={24} />}
+              {isLiked ? <Heart className="text-[#29ABE2] fill-[#29ABE2] scale-125 transform transition-transform duration-300" size={28} /> : <Heart className="text-white fill-white transform transition-transform duration-300" size={28} />}
             </button>
-            <span className="text-white text-xs mt-1">{isLiked ? video.likes + 1 : video.likes}</span>
+            <span className="text-white text-xs mt-1 font-medium">{isLiked ? video.likes + 1 : video.likes}</span>
           </div>
           <div className="flex flex-col items-center">
             <button 
@@ -539,17 +602,17 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.preventDefault();
                 onCommentsOpenChange(!isCommentsOpen);
               }}
-              className="w-10 h-10 flex items-center justify-center text-white hover:opacity-80 transition-opacity"
+              className="w-12 h-12 flex items-center justify-center rounded-full text-white hover:opacity-80 transition-opacity"
             >
               <Image 
                 src="/assets/Vector-12.png"
                 alt="Comments"
-                width={24}
-                height={24}
+                width={28}
+                height={28}
                 className="transform transition-transform duration-300"
               />
             </button>
-            <span className="text-white text-xs mt-1">{video.comments}</span>
+            <span className="text-white text-xs mt-1 font-medium">{video.comments}</span>
           </div>
           <div className="flex flex-col items-center">
             <button 
@@ -557,22 +620,13 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.stopPropagation();
                 e.preventDefault();
               }}
-              className="w-10 h-10 flex items-center justify-center text-white hover:opacity-80 transition-opacity"
+              className="w-12 h-12 flex items-center justify-center rounded-full text-white hover:opacity-80 transition-opacity"
             >
-              <Share2 size={24} />
+              <Share2 size={28} />
             </button>
-            <span className="text-white text-xs mt-1">Share</span>
+            <span className="text-white text-xs mt-1 font-medium">Share</span>
           </div>
         </div>
-
-        {/* Play/Pause Indicator */}
-        {!isPlaying && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-12 h-12 flex items-center justify-center rounded-full bg-black/40 text-white">
-              <Play size={24} />
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -588,11 +642,16 @@ export default function VideoFeed() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const [lastScrollTop, setLastScrollTop] = useState(0);
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const feedRef = useRef<HTMLDivElement>(null);
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const dragTimeout = useRef<NodeJS.Timeout | null>(null);
   
   // Define categories in the same order as TopNav
   const categories = ['Breaking', 'Politics', 'For You', 'Tech', 'Business', 'Following'];
@@ -643,11 +702,31 @@ export default function VideoFeed() {
   }, [searchParams, videos]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (hasOpenComments || hasOpenArticle) return; // Prevent scrolling when comments or article are open
+    if (hasOpenComments || hasOpenArticle) return;
+    
     const element = e.currentTarget;
     const newIndex = Math.round(element.scrollTop / element.clientHeight);
     if (newIndex !== activeVideoIndex) {
       setActiveVideoIndex(newIndex);
+    }
+
+    // Detect if we're actually scrolling vertically
+    const currentScrollTop = element.scrollTop;
+    const scrollDiff = Math.abs(currentScrollTop - lastScrollTop);
+    setLastScrollTop(currentScrollTop);
+
+    if (scrollDiff > 5) { // Threshold to determine if we're actually scrolling
+      setIsScrolling(true);
+      
+      // Clear existing timeout
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current);
+      }
+      
+      // Set new timeout to clear scrolling state
+      scrollTimeout.current = setTimeout(() => {
+        setIsScrolling(false);
+      }, 300); // Increased timeout for better user experience
     }
   };
 
@@ -668,78 +747,157 @@ export default function VideoFeed() {
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
-    if (hasOpenComments || hasOpenArticle) return; // Prevent touch start if comments or article are open
+    if (hasOpenComments || hasOpenArticle) return;
+    
+    // Store both X and Y coordinates
     setTouchStart(e.touches[0].clientX);
+    touchStartY.current = e.touches[0].clientY;
     setIsDragging(true);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (!isDragging || hasOpenComments || hasOpenArticle) return;
+    
     const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    
+    // Calculate vertical movement
+    const verticalMovement = Math.abs(currentY - (touchStartY.current || 0));
+    const horizontalMovement = Math.abs(currentX - (touchStart || 0));
+    
+    // If vertical movement is greater than horizontal, consider it a scroll
+    if (verticalMovement > horizontalMovement) {
+      setIsScrolling(true);
+      return;
+    }
+    
+    // Clear any existing timeout
+    if (dragTimeout.current) {
+      clearTimeout(dragTimeout.current);
+    }
+
+    // Set a new timeout to reset the drag if held too long
+    dragTimeout.current = setTimeout(() => {
+      setIsDragging(false);
+      setDragOffset(0);
+      setTouchStart(null);
+      touchStartY.current = null;
+    }, 500); // Reset after 500ms of holding
+    
     setDragOffset(currentX - (touchStart || 0));
   };
 
-  const handleTouchEnd = () => {
-    if (!isDragging || hasOpenComments || hasOpenArticle) return;
-
-    const threshold = 50; // Minimum distance to trigger category change
-    const currentIndex = categories.indexOf(currentCategory);
-    let newIndex = currentIndex;
-
-    if (Math.abs(dragOffset) > threshold) {
-      if (dragOffset > 0 && currentIndex > 0) {
-        // Dragged right - go to previous category
-        newIndex = currentIndex - 1;
-      } else if (dragOffset < 0 && currentIndex < categories.length - 1) {
-        // Dragged left - go to next category
-        newIndex = currentIndex + 1;
-      }
-    }
-
-    handleCategoryChange(newIndex);
-
-    // Reset drag state
-    setIsDragging(false);
-    setDragOffset(0);
-    setTouchStart(null);
-  };
-
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (hasOpenComments || hasOpenArticle) return; // Prevent mouse down if comments or article are open
+    if (hasOpenComments || hasOpenArticle) return;
+    
     setTouchStart(e.clientX);
+    touchStartY.current = e.clientY;
     setIsDragging(true);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!isDragging || hasOpenComments || hasOpenArticle) return;
+    
     const currentX = e.clientX;
+    const currentY = e.clientY;
+    
+    // Calculate vertical movement
+    const verticalMovement = Math.abs(currentY - (touchStartY.current || 0));
+    const horizontalMovement = Math.abs(currentX - (touchStart || 0));
+    
+    // If vertical movement is greater than horizontal, consider it a scroll
+    if (verticalMovement > horizontalMovement) {
+      setIsScrolling(true);
+      return;
+    }
+
+    // Clear any existing timeout
+    if (dragTimeout.current) {
+      clearTimeout(dragTimeout.current);
+    }
+
+    // Set a new timeout to reset the drag if held too long
+    dragTimeout.current = setTimeout(() => {
+      setIsDragging(false);
+      setDragOffset(0);
+      setTouchStart(null);
+      touchStartY.current = null;
+    }, 500); // Reset after 500ms of holding
+    
     setDragOffset(currentX - (touchStart || 0));
   };
 
-  const handleMouseUp = () => {
-    if (!isDragging || hasOpenComments || hasOpenArticle) return;
+  const handleTouchEnd = () => {
+    if (!isDragging || hasOpenComments || hasOpenArticle || isScrolling) return;
 
-    const threshold = 50; // Minimum distance to trigger category change
+    // Clear the drag timeout
+    if (dragTimeout.current) {
+      clearTimeout(dragTimeout.current);
+      dragTimeout.current = null;
+    }
+
+    const threshold = 50;
     const currentIndex = categories.indexOf(currentCategory);
     let newIndex = currentIndex;
 
     if (Math.abs(dragOffset) > threshold) {
       if (dragOffset > 0 && currentIndex > 0) {
-        // Dragged right - go to previous category
         newIndex = currentIndex - 1;
       } else if (dragOffset < 0 && currentIndex < categories.length - 1) {
-        // Dragged left - go to next category
         newIndex = currentIndex + 1;
       }
     }
 
     handleCategoryChange(newIndex);
 
-    // Reset drag state
+    // Reset states
     setIsDragging(false);
     setDragOffset(0);
     setTouchStart(null);
+    touchStartY.current = null;
   };
+
+  const handleMouseUp = () => {
+    if (!isDragging || hasOpenComments || hasOpenArticle || isScrolling) return;
+
+    // Clear the drag timeout
+    if (dragTimeout.current) {
+      clearTimeout(dragTimeout.current);
+      dragTimeout.current = null;
+    }
+
+    const threshold = 50;
+    const currentIndex = categories.indexOf(currentCategory);
+    let newIndex = currentIndex;
+
+    if (Math.abs(dragOffset) > threshold) {
+      if (dragOffset > 0 && currentIndex > 0) {
+        newIndex = currentIndex - 1;
+      } else if (dragOffset < 0 && currentIndex < categories.length - 1) {
+        newIndex = currentIndex + 1;
+      }
+    }
+
+    handleCategoryChange(newIndex);
+
+    // Reset states
+    setIsDragging(false);
+    setDragOffset(0);
+    setTouchStart(null);
+    touchStartY.current = null;
+  };
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current);
+      }
+      if (dragTimeout.current) {
+        clearTimeout(dragTimeout.current);
+      }
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -771,7 +929,7 @@ export default function VideoFeed() {
 
   return (
     <div 
-      className="relative h-full"
+      className="relative h-full flex flex-col items-center"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -784,7 +942,7 @@ export default function VideoFeed() {
       
       {/* Video Feed */}
       <div 
-        className="absolute inset-0 overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
+        className="w-full h-[calc(100vh-120px)] mx-auto flex-1 overflow-y-scroll snap-y snap-mandatory scrollbar-hide relative"
         onScroll={handleScroll}
         style={{
           transform: isDragging ? `translateX(${dragOffset}px)` : 'none',
@@ -802,25 +960,25 @@ export default function VideoFeed() {
             <div
               key={video.id}
               id={`video-${video.id}`}
-              className={`relative w-full h-screen snap-start ${
+              className={`relative w-full h-full snap-start ${
                 index === currentVideoIndex ? 'z-10' : 'z-0'
               }`}
             >
-          <VideoPost
-            video={video}
-            isActive={index === activeVideoIndex}
-            isCommentsOpen={hasOpenComments}
-            onCommentsOpenChange={setHasOpenComments}
-            isArticleOpen={hasOpenArticle}
-            onArticleOpenChange={setHasOpenArticle}
-          />
+              <VideoPost
+                video={video}
+                isActive={index === activeVideoIndex}
+                isCommentsOpen={hasOpenComments}
+                onCommentsOpenChange={setHasOpenComments}
+                isArticleOpen={hasOpenArticle}
+                onArticleOpenChange={setHasOpenArticle}
+              />
             </div>
           ))
         )}
       </div>
 
       {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 z-50" style={{ pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto' }}>
+      <div className="w-full mx-auto z-50" style={{ pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto' }}>
         <BottomNav />
       </div>
 

@@ -2,13 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom breakpoint for tall screens */
-@media (min-height: 900px) {
-  .tall-screen\:w-\[720px\] {
-    width: 720px;
-  }
-}
-
 :root {
   --foreground-rgb: 0, 0, 0;
   --background-rgb: 17, 24, 39;

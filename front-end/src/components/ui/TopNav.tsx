@@ -11,7 +11,7 @@ const categories = [
   { name: 'For You', path: '/' },
   { name: 'Tech', path: '/tech' },
   { name: 'Business', path: '/business' },
-  { name: 'Subscribed', path: '/following' }
+  { name: 'Followed', path: '/following' }
 ];
 
 export default function TopNav() {
@@ -31,7 +31,7 @@ export default function TopNav() {
   };
 
   return (
-    <div className="absolute top-24 left-0 right-0 z-20">
+    <div className="absolute top-12 left-0 right-0 z-20">
       {/* Navigation Container */}
       <div className="relative w-full flex justify-center">
         <div className="flex items-center justify-between w-full px-3">
@@ -46,7 +46,7 @@ export default function TopNav() {
               <button
                 key={category.name}
                 onClick={() => handleCategoryClick(category)}
-                className={`px-1.5 py-1 text-[6px] font-medium rounded-full whitespace-nowrap transition-colors
+                className={`px-1.5 py-1 text-[8px] font-medium rounded-full whitespace-nowrap transition-colors
                   ${activeCategory === category.name
                     ? 'bg-[#29ABE2] text-white'
                     : 'text-white/90 hover:text-white'

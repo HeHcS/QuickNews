@@ -200,9 +200,13 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
       }}
     >
       <div 
-        className={`w-[360px] tall-screen:w-[720px] h-[70vh] bg-black rounded-t-2xl transform transition-all duration-300 ease-out flex flex-col ${
+        className={`w-auto h-[55.6vh] bg-black rounded-t-2xl transform transition-all duration-300 ease-out flex flex-col ${
           isOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
+        style={{ 
+          width: 'calc(55.6vh * 9/16 * 1.8)', // 80% wider, but based on 55.6vh height
+          maxWidth: '100%'
+        }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Drag Handle */}
@@ -227,22 +231,22 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
         {/* Comments List */}
         <div className="flex-1 overflow-y-auto scrollbar-hide">
           {enhancedComments.map((comment) => (
-            <div key={comment.id} className="flex gap-3 p-3 hover:bg-white/5">
+            <div key={comment.id} className="flex gap-2 p-2 hover:bg-white/5">
               <img 
                 src={comment.user.avatar} 
                 alt={comment.user.name}
-                className="w-10 h-10 rounded-full"
+                className="w-8 h-8 rounded-full"
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-sm text-white">{comment.user.name}</span>
-                  <span className="text-white/50 text-xs">{comment.timestamp}</span>
+                  <span className="font-semibold text-xs text-white">{comment.user.name}</span>
+                  <span className="text-white/50 text-[10px]">{comment.timestamp}</span>
                 </div>
-                <p className="text-sm mt-1 text-white">{comment.text}</p>
-                <div className="flex items-center gap-4 mt-2">
+                <p className="text-xs mt-1 text-white">{comment.text}</p>
+                <div className="flex items-center gap-3 mt-1">
                   <button 
                     onClick={() => handleCommentLike(comment.id)}
-                    className={`flex items-center gap-1 text-xs transition-colors ${
+                    className={`flex items-center gap-1 text-[10px] transition-colors ${
                       likedComments[comment.id] ? 'text-red-500' : 'text-white/70 hover:text-white'
                     }`}
                   >
@@ -251,7 +255,7 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
                   </button>
                   <button 
                     onClick={() => handleReplyClick(comment.id)}
-                    className="text-white/70 hover:text-white text-xs"
+                    className="text-white/70 hover:text-white text-[10px]"
                   >
                     💬 Reply
                   </button>
@@ -281,18 +285,18 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
 
                     {/* Replies List */}
                     {comment.replies && comment.replies.map((reply) => (
-                      <div key={reply.id} className="flex gap-2 mb-3">
+                      <div key={reply.id} className="flex gap-1 mb-2">
                         <img 
                           src={reply.user.avatar} 
                           alt={reply.user.name}
-                          className="w-6 h-6 rounded-full"
+                          className="w-5 h-5 rounded-full"
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-xs text-white">{reply.user.name}</span>
-                            <span className="text-white/50 text-[10px]">{reply.timestamp}</span>
+                            <span className="font-medium text-[10px] text-white">{reply.user.name}</span>
+                            <span className="text-white/50 text-[9px]">{reply.timestamp}</span>
                           </div>
-                          <p className="text-xs mt-0.5 text-white">{reply.text}</p>
+                          <p className="text-[10px] mt-0.5 text-white">{reply.text}</p>
                           <div className="flex items-center gap-3 mt-1">
                             <button 
                               onClick={() => handleReplyLike(reply.id)}
@@ -311,7 +315,7 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
                     {/* Show/Hide Replies Button */}
                     <button 
                       onClick={() => toggleReplies(comment.id)}
-                      className="text-blue-400 text-xs hover:text-blue-300 transition-colors"
+                      className="text-blue-400 text-[10px] hover:text-blue-300 transition-colors"
                     >
                       {expandedReplies[comment.id] ? 'Hide replies' : 'Show replies'}
                     </button>
@@ -328,9 +332,9 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
             <input 
               type="text" 
               placeholder="Add a comment..."
-              className="flex-1 bg-white/10 rounded-full px-4 py-2 text-sm text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 bg-white/10 rounded-full px-4 py-2 text-xs text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <button className="px-4 py-2 bg-blue-500 text-white text-sm font-medium rounded-full hover:bg-blue-600 transition-colors">
+            <button className="px-4 py-2 bg-blue-500 text-white text-xs font-medium rounded-full hover:bg-blue-600 transition-colors">
               Post
             </button>
           </div>
