@@ -332,16 +332,34 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [animationPhase, setAnimationPhase] = useState<'idle' | 'phase1' | 'phase2'>('idle');
+  const [animationPhase, setAnimationPhase] = useState<'idle' | 'phase1' | 'phase2' | 'phase3'>('idle');
   const [isCaptionsExpanded, setIsCaptionsExpanded] = useState(false);
+  const [showSparkles, setShowSparkles] = useState(false);
   const { ref, inView } = useInView({
     threshold: 0.7,
   });
+
+  // Double tap to like states
+  const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
+  const [doubleTapPosition, setDoubleTapPosition] = useState({ x: 0, y: 0 });
+  const pauseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Double tap detection refs
+  const lastTapTimeRef = useRef<number>(0);
+  const tapCountRef = useRef<number>(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isDoubleTapRef = useRef<boolean>(false);
+  const isPausedRef = useRef<boolean>(false);
 
   // Reset states when video changes or becomes inactive
   useEffect(() => {
     setIsLiked(false);
     setIsCaptionsExpanded(false);
+    // Clear any pending pause timeout
+    if (pauseTimeoutRef.current) {
+      clearTimeout(pauseTimeoutRef.current);
+      pauseTimeoutRef.current = null;
+    }
   }, [video.id, isActive]);
 
   // Generate content based on video file
@@ -359,17 +377,21 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     );
   }
 
+  // Handle video playback based on visibility
   useEffect(() => {
     if (!videoRef.current) return;
     
     const videoElement = videoRef.current;
 
     if (isActive && inView) {
+      // If the video was manually paused, don't auto-play it
+      if (!isPausedRef.current) {
       const playPromise = videoElement.play();
       if (playPromise !== undefined) {
         playPromise
           .then(() => setIsPlaying(true))
           .catch(() => setIsPlaying(false));
+        }
       }
     } else {
       videoElement.pause();
@@ -377,22 +399,187 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     }
   }, [isActive, inView]);
 
+  // Reset isPausedRef when isActive changes
+  useEffect(() => {
+    if (isActive) {
+      // When a video becomes active, reset the paused state
+      isPausedRef.current = false;
+    }
+  }, [isActive]);
+
+  // Force autoplay when component mounts
+  useEffect(() => {
+    if (!videoRef.current) return;
+    
+    const videoElement = videoRef.current;
+    
+    // Force autoplay on mount
+    const playPromise = videoElement.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => setIsPlaying(true))
+        .catch(() => setIsPlaying(false));
+    }
+    
+    // Add event listener for when video is loaded
+    const handleLoadedData = () => {
+      if (!isPausedRef.current) {
+        const playPromise = videoElement.play();
+        if (playPromise !== undefined) {
+          playPromise
+            .then(() => setIsPlaying(true))
+            .catch(() => setIsPlaying(false));
+        }
+      }
+    };
+    
+    videoElement.addEventListener('loadeddata', handleLoadedData);
+    
+    return () => {
+      videoElement.removeEventListener('loadeddata', handleLoadedData);
+    };
+  }, []);
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (pauseTimeoutRef.current) {
+        clearTimeout(pauseTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Set up double tap detection
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const container = containerRef.current;
+    
+    const handleTap = (e: MouseEvent | TouchEvent) => {
+      // Don't trigger if clicking on interactive elements
+      const target = e.target as HTMLElement;
+      if (
+        target.closest('a') ||
+        target.closest('button') ||
+        target.closest('.interactive-element')
+      ) {
+        return;
+      }
+      
+      const currentTime = new Date().getTime();
+      const timeDiff = currentTime - lastTapTimeRef.current;
+      
+      // Get position based on event type
+      let clientX, clientY;
+      if (e instanceof MouseEvent) {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      } else {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      }
+      
+      // If this is the second tap within 500ms
+      if (timeDiff < 500) {
+        // Double tap detected
+        isDoubleTapRef.current = true;
+        tapCountRef.current = 0;
+        setDoubleTapPosition({ x: clientX, y: clientY });
+        setShowDoubleTapHeart(true);
+        
+        // Like the video if not already liked
+        if (!isLiked) {
+          setIsLiked(true);
+        }
+        
+        // Hide the heart animation after 1 second
+        setTimeout(() => {
+          setShowDoubleTapHeart(false);
+        }, 1000);
+        
+        // Cancel any pending pause timeout
+        if (pauseTimeoutRef.current) {
+          clearTimeout(pauseTimeoutRef.current);
+          pauseTimeoutRef.current = null;
+        }
+        
+        // Prevent the default behavior to avoid pausing
+        e.preventDefault();
+        e.stopPropagation();
+      } else {
+        // First tap - set up for potential double tap
+        isDoubleTapRef.current = false;
+        tapCountRef.current = 1;
+        lastTapTimeRef.current = currentTime;
+        
+        // Set a timeout to handle single tap (pause) if no second tap occurs
+        if (pauseTimeoutRef.current) {
+          clearTimeout(pauseTimeoutRef.current);
+        }
+        
+        pauseTimeoutRef.current = setTimeout(() => {
+          // If we're still at tap count 1 after the timeout and it wasn't a double tap
+          if (tapCountRef.current === 1 && !isDoubleTapRef.current) {
+            // Single tap - pause the video
+            const video = videoRef.current;
+            if (video && !video.paused) {
+              video.pause();
+              setIsPlaying(false);
+              isPausedRef.current = true;
+            }
+          }
+          tapCountRef.current = 0;
+        }, 500); // 500ms delay for single tap
+      }
+    };
+    
+    // Add event listeners
+    container.addEventListener('click', handleTap);
+    container.addEventListener('touchend', handleTap);
+    
+    // Clean up
+    return () => {
+      container.removeEventListener('click', handleTap);
+      container.removeEventListener('touchend', handleTap);
+    };
+  }, [isLiked]);
+
   const togglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     const video = videoRef.current;
     if (!video) return;
 
+    // Clear any pending pause timeout to prevent conflicts
+    if (pauseTimeoutRef.current) {
+      clearTimeout(pauseTimeoutRef.current);
+      pauseTimeoutRef.current = null;
+    }
+
     if (video.paused) {
+      // Play the video immediately
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise
-          .then(() => setIsPlaying(true))
-          .catch(() => setIsPlaying(false));
+          .then(() => {
+            setIsPlaying(true);
+            isPausedRef.current = false;
+            // Reset tap detection state when manually playing
+            tapCountRef.current = 0;
+            isDoubleTapRef.current = false;
+          })
+          .catch((error) => {
+            console.error('Error playing video:', error);
+            setIsPlaying(false);
+          });
       }
     } else {
+      // Set a timeout to pause the video after delay
+      pauseTimeoutRef.current = setTimeout(() => {
       video.pause();
       setIsPlaying(false);
+        isPausedRef.current = true;
+      }, 500); // 500ms delay for pause
     }
   };
 
@@ -402,17 +589,24 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     
     // Start animation sequence
     setAnimationPhase('phase1');
+    setShowSparkles(true);
     
     // After first phase, change the state
     setTimeout(() => {
       setIsFollowing(!isFollowing);
       setAnimationPhase('phase2');
       
-      // After second phase, reset to idle
+      // After second phase, add bounce
       setTimeout(() => {
-        setAnimationPhase('idle');
-      }, 300);
-    }, 200);
+        setAnimationPhase('phase3');
+        
+        // After bounce, reset to idle
+        setTimeout(() => {
+          setAnimationPhase('idle');
+          setShowSparkles(false);
+        }, 200);
+      }, 150);
+    }, 100);
   };
 
   // Get animation classes based on current phase
@@ -425,18 +619,171 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     
     if (animationPhase === 'phase1') {
       return isFollowing
-        ? 'bg-[#29ABE2] text-white rotate-[-5deg] translate-x-[-2px]'
-        : 'bg-white/20 text-white border border-white/30 rotate-[5deg] translate-x-[2px]';
+        ? 'bg-[#29ABE2] text-white scale-95 rotate-[-3deg]'
+        : 'bg-white/20 text-white border border-white/30 scale-95 rotate-[3deg]';
     }
     
-    // phase2
+    if (animationPhase === 'phase2') {
+      return isFollowing
+        ? 'bg-white/20 text-white border border-white/30 scale-105 rotate-[3deg]'
+        : 'bg-[#29ABE2] text-white scale-105 rotate-[-3deg]';
+    }
+    
+    // phase3 (bounce)
     return isFollowing
-      ? 'bg-white/20 text-white border border-white/30 rotate-[5deg] translate-x-[2px]'
-      : 'bg-[#29ABE2] text-white rotate-[-5deg] translate-x-[-2px]';
+      ? 'bg-white/20 text-white border border-white/30 scale-100 rotate-0'
+      : 'bg-[#29ABE2] text-white scale-100 rotate-0';
   };
 
+  // Update isPlaying state based on video's actual playing state
+  useEffect(() => {
+    if (!videoRef.current) return;
+    
+    const videoElement = videoRef.current;
+    
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    
+    videoElement.addEventListener('play', handlePlay);
+    videoElement.addEventListener('pause', handlePause);
+    
+    return () => {
+      videoElement.removeEventListener('play', handlePlay);
+      videoElement.removeEventListener('pause', handlePause);
+    };
+  }, []);
+
   return (
-    <div ref={ref} className="relative w-full h-full snap-start bg-black">
+    <div 
+      ref={containerRef}
+      className="relative w-full h-full snap-start bg-black"
+      onClick={(e) => {
+        const target = e.target as HTMLElement;
+        // Don't trigger if clicking on interactive elements
+        if (
+          target.closest('a') ||
+          target.closest('button') ||
+          target.closest('.interactive-element')
+        ) {
+          return;
+        }
+        
+        const currentTime = new Date().getTime();
+        const timeDiff = currentTime - lastTapTimeRef.current;
+        
+        // If this is the second tap within 500ms
+        if (timeDiff < 500) {
+          // Double tap detected
+          isDoubleTapRef.current = true;
+          tapCountRef.current = 0;
+          setDoubleTapPosition({ x: e.clientX, y: e.clientY });
+          setShowDoubleTapHeart(true);
+          
+          // Like the video if not already liked
+          if (!isLiked) {
+            setIsLiked(true);
+          }
+          
+          // Hide the heart animation after 1 second
+          setTimeout(() => {
+            setShowDoubleTapHeart(false);
+          }, 1000);
+          
+          // Cancel any pending pause timeout
+          if (pauseTimeoutRef.current) {
+            clearTimeout(pauseTimeoutRef.current);
+            pauseTimeoutRef.current = null;
+          }
+        } else {
+          // First tap - set up for potential double tap
+          isDoubleTapRef.current = false;
+          tapCountRef.current = 1;
+          lastTapTimeRef.current = currentTime;
+          
+          // Set a timeout to handle single tap (pause) if no second tap occurs
+          if (pauseTimeoutRef.current) {
+            clearTimeout(pauseTimeoutRef.current);
+          }
+          
+          pauseTimeoutRef.current = setTimeout(() => {
+            // If we're still at tap count 1 after the timeout and it wasn't a double tap
+            if (tapCountRef.current === 1 && !isDoubleTapRef.current) {
+              // Single tap - pause the video
+              const video = videoRef.current;
+              if (video && !video.paused) {
+                video.pause();
+                setIsPlaying(false);
+                isPausedRef.current = true;
+              }
+            }
+            tapCountRef.current = 0;
+          }, 500); // 500ms delay for single tap
+        }
+      }}
+      onTouchEnd={(e) => {
+        const target = e.target as HTMLElement;
+        // Don't trigger if touching interactive elements
+        if (
+          target.closest('a') ||
+          target.closest('button') ||
+          target.closest('.interactive-element')
+        ) {
+          return;
+        }
+        
+        const currentTime = new Date().getTime();
+        const timeDiff = currentTime - lastTapTimeRef.current;
+        
+        // If this is the second tap within 500ms
+        if (timeDiff < 500) {
+          // Double tap detected
+          isDoubleTapRef.current = true;
+          tapCountRef.current = 0;
+          setDoubleTapPosition({ x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY });
+          setShowDoubleTapHeart(true);
+          
+          // Like the video if not already liked
+          if (!isLiked) {
+            setIsLiked(true);
+          }
+          
+          // Hide the heart animation after 1 second
+          setTimeout(() => {
+            setShowDoubleTapHeart(false);
+          }, 1000);
+          
+          // Cancel any pending pause timeout
+          if (pauseTimeoutRef.current) {
+            clearTimeout(pauseTimeoutRef.current);
+            pauseTimeoutRef.current = null;
+          }
+        } else {
+          // First tap - set up for potential double tap
+          isDoubleTapRef.current = false;
+          tapCountRef.current = 1;
+          lastTapTimeRef.current = currentTime;
+          
+          // Set a timeout to handle single tap (pause) if no second tap occurs
+          if (pauseTimeoutRef.current) {
+            clearTimeout(pauseTimeoutRef.current);
+          }
+          
+          pauseTimeoutRef.current = setTimeout(() => {
+            // If we're still at tap count 1 after the timeout and it wasn't a double tap
+            if (tapCountRef.current === 1 && !isDoubleTapRef.current) {
+              // Single tap - pause the video
+              const video = videoRef.current;
+              if (video && !video.paused) {
+                video.pause();
+                setIsPlaying(false);
+                isPausedRef.current = true;
+              }
+            }
+            tapCountRef.current = 0;
+          }, 500); // 500ms delay for single tap
+        }
+      }}
+    >
       {/* Video Layer */}
       <div 
         className="absolute inset-0" 
@@ -449,6 +796,8 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
             src={video.videoFile}
             loop
             playsInline
+            autoPlay
+            muted
             className="absolute inset-0 w-full h-full object-cover bg-black"
           />
         </div>
@@ -459,6 +808,22 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
           }`}
         />
       </div>
+      
+      {/* Double Tap Heart Animation */}
+      {showDoubleTapHeart && (
+        <div className="fixed inset-0 z-[9999] pointer-events-none">
+          <div className="absolute" style={{ left: `${doubleTapPosition.x}px`, top: `${doubleTapPosition.y}px`, transform: 'translate(-50%, -50%)' }}>
+            <div className="relative">
+              <div className="absolute inset-0 animate-pulse bg-[#29ABE2]/30 rounded-full blur-xl" style={{ width: '100px', height: '100px' }} />
+              <div className="relative z-10">
+                <div className="animate-double-tap-heart" style={{ '--animation-delay': '0s' } as React.CSSProperties}>
+                  <Heart className="w-[100px] h-[100px] text-[#29ABE2]" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Video Info Overlay */}
       <div className="absolute inset-0 z-20">
@@ -479,7 +844,31 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
           }}
         >
           {!isPlaying && (
-            <div className="w-16 h-16 flex items-center justify-center rounded-full bg-black/40 text-white cursor-pointer">
+            <div 
+              className="w-16 h-16 flex items-center justify-center rounded-full bg-black/40 text-white cursor-pointer"
+              onClick={(e) => {
+                e.stopPropagation();
+                const video = videoRef.current;
+                if (!video) return;
+
+                // Play the video immediately
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                  playPromise
+                    .then(() => {
+                      setIsPlaying(true);
+                      isPausedRef.current = false;
+                      // Reset tap detection state when manually playing
+                      tapCountRef.current = 0;
+                      isDoubleTapRef.current = false;
+                    })
+                    .catch((error) => {
+                      console.error('Error playing video:', error);
+                      setIsPlaying(false);
+                    });
+                }
+              }}
+            >
               <Play size={32} />
             </div>
           )}
@@ -549,13 +938,13 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
               </Link>
               <button 
                 onClick={toggleFollow}
-                className={`pointer-events-auto px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-all duration-300 flex items-center gap-1 ${getAnimationClasses()}`}
+                className={`pointer-events-auto px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-all duration-300 flex items-center gap-1 relative ${getAnimationClasses()}`}
               >
                 <div className="flex items-center gap-1">
                   {isFollowing ? (
                     <>
                       <span>Followed</span>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="transform transition-transform duration-300">
                         <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </>
@@ -563,6 +952,12 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                     'Follow'
                   )}
                 </div>
+                {showSparkles && (
+                  <div className="absolute -top-1 -right-1 w-2 h-2">
+                    <div className="absolute inset-0 bg-yellow-400 rounded-full animate-ping opacity-75"></div>
+                    <div className="absolute inset-0 bg-yellow-400 rounded-full"></div>
+                  </div>
+                )}
               </button>
             </div>
             <button 
@@ -644,6 +1039,9 @@ export default function VideoFeed() {
   const [error, setError] = useState<string | null>(null);
   const [isScrolling, setIsScrolling] = useState(false);
   const [lastScrollTop, setLastScrollTop] = useState(0);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isSeekbarDragging, setIsSeekbarDragging] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -652,6 +1050,8 @@ export default function VideoFeed() {
   const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
   const touchStartY = useRef<number | null>(null);
   const dragTimeout = useRef<NodeJS.Timeout | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const seekbarRef = useRef<HTMLDivElement>(null);
   
   // Define categories in the same order as TopNav
   const categories = ['Breaking', 'Politics', 'For You', 'Tech', 'Business', 'Following'];
@@ -701,6 +1101,124 @@ export default function VideoFeed() {
     }
   }, [searchParams, videos]);
 
+  // Update video time and duration for the active video
+  useEffect(() => {
+    if (!videos[activeVideoIndex]) return;
+    
+    // Find the video element for the active video
+    const videoElement = document.querySelector(`#video-${videos[activeVideoIndex].id} video`) as HTMLVideoElement;
+    if (!videoElement) return;
+    
+    videoRef.current = videoElement;
+    
+    const handleTimeUpdate = () => {
+      setCurrentTime(videoElement.currentTime);
+    };
+    
+    const handleLoadedMetadata = () => {
+      setDuration(videoElement.duration);
+    };
+    
+    videoElement.addEventListener('timeupdate', handleTimeUpdate);
+    videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+    
+    return () => {
+      videoElement.removeEventListener('timeupdate', handleTimeUpdate);
+      videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
+  }, [activeVideoIndex, videos]);
+
+  // Handle seeking
+  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!videoRef.current) return;
+    
+    const videoElement = videoRef.current;
+    const seekBar = e.currentTarget;
+    const rect = seekBar.getBoundingClientRect();
+    const seekPosition = (e.clientX - rect.left) / rect.width;
+    
+    // Set the video time based on the seek position
+    videoElement.currentTime = seekPosition * videoElement.duration;
+  };
+
+  // Handle seekbar drag start
+  const handleSeekbarDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!videoRef.current) return;
+    
+    setIsSeekbarDragging(true);
+    e.stopPropagation(); // Prevent other event handlers from firing
+  };
+
+  // Handle seekbar drag
+  const handleSeekbarDrag = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isSeekbarDragging || !videoRef.current || !seekbarRef.current) return;
+    
+    const videoElement = videoRef.current;
+    const seekBar = seekbarRef.current;
+    const rect = seekBar.getBoundingClientRect();
+    
+    // Get position based on event type
+    let clientX;
+    if (e.type === 'touchmove') {
+      clientX = (e as React.TouchEvent).touches[0].clientX;
+    } else {
+      clientX = (e as React.MouseEvent).clientX;
+    }
+    
+    // Calculate seek position (clamped between 0 and 1)
+    const seekPosition = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    
+    // Set the video time based on the seek position
+    videoElement.currentTime = seekPosition * videoElement.duration;
+    
+    e.stopPropagation(); // Prevent other event handlers from firing
+  };
+
+  // Handle seekbar drag end
+  const handleSeekbarDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
+    setIsSeekbarDragging(false);
+    e.stopPropagation(); // Prevent other event handlers from firing
+  };
+
+  // Add event listeners for seekbar dragging
+  useEffect(() => {
+    if (!seekbarRef.current) return;
+    
+    const seekbar = seekbarRef.current;
+    
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isSeekbarDragging) return;
+      handleSeekbarDrag(e as unknown as React.MouseEvent);
+    };
+    
+    const handleMouseUp = (e: MouseEvent) => {
+      if (!isSeekbarDragging) return;
+      handleSeekbarDragEnd(e as unknown as React.MouseEvent);
+    };
+    
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isSeekbarDragging) return;
+      handleSeekbarDrag(e as unknown as React.TouchEvent);
+    };
+    
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (!isSeekbarDragging) return;
+      handleSeekbarDragEnd(e as unknown as React.TouchEvent);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleTouchMove);
+    document.addEventListener('touchend', handleTouchEnd);
+    
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isSeekbarDragging]);
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (hasOpenComments || hasOpenArticle) return;
     
@@ -708,6 +1226,22 @@ export default function VideoFeed() {
     const newIndex = Math.round(element.scrollTop / element.clientHeight);
     if (newIndex !== activeVideoIndex) {
       setActiveVideoIndex(newIndex);
+      
+      // Force autoplay for the newly active video
+      setTimeout(() => {
+        const videoElements = document.querySelectorAll('video');
+        if (videoElements[newIndex]) {
+          const videoElement = videoElements[newIndex] as HTMLVideoElement;
+          if (videoElement.paused) {
+            const playPromise = videoElement.play();
+            if (playPromise !== undefined) {
+              playPromise.catch(error => {
+                console.error('Error playing video:', error);
+              });
+            }
+          }
+        }
+      }, 100); // Small delay to ensure the video is ready
     }
 
     // Detect if we're actually scrolling vertically
@@ -938,6 +1472,28 @@ export default function VideoFeed() {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
+      {/* Video Timeline/Seekbar - Positioned above TopNav */}
+      {videos.length > 0 && (
+        <div 
+          className="absolute top-[30px] left-0 right-0 px-4 z-50 select-none"
+        >
+          <div 
+            ref={seekbarRef}
+            className="h-1 bg-black/30 rounded-full cursor-pointer select-none"
+            onClick={handleSeek}
+            onMouseDown={handleSeekbarDragStart}
+            onTouchStart={handleSeekbarDragStart}
+          >
+            <div 
+              className="h-full bg-[#29ABE2] rounded-full relative transition-all duration-100 ease-out select-none"
+              style={{ width: `${(currentTime / duration) * 100}%` }}
+            >
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#29ABE2] shadow-md transition-transform duration-100 ease-out transform hover:scale-125 select-none" />
+            </div>
+          </div>
+        </div>
+      )}
+      
       <TopNav />
       
       {/* Video Feed */}
