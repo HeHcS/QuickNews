@@ -67,8 +67,8 @@ const userSchema = new mongoose.Schema({
       default: false
     },
     category: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Category'
+      type: String,
+      trim: true
     },
     badges: [{
       type: String,

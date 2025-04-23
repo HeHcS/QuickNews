@@ -9,7 +9,6 @@ import passport from './config/passport.js';
 import socketAuthMiddleware from './middleware/socketAuthMiddleware.js';
 import authRoutes from './routes/authRoutes.js';
 import videoRoutes from './routes/videoRoutes.js';
-import categoryRoutes from './routes/categoryRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import engagementRoutes from './routes/engagementRoutes.js';
 import { initRedis, closeRedis } from './utils/redisCache.js';
@@ -93,7 +92,6 @@ const attachSocketIO = (req, res, next) => {
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/videos', videoRoutes);
-app.use('/api/categories', categoryRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/engagement', attachSocketIO, engagementRoutes);
 

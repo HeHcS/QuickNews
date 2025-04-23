@@ -1,5 +1,4 @@
 import Video from '../models/videoModel.js';
-import Category from '../models/categoryModel.js';
 import Bookmark from '../models/bookmarkModel.js';
 import mongoose from 'mongoose';
 import { streamVideo, getVideosDir } from '../utils/videoStream.js';
@@ -72,11 +71,8 @@ export const getVideoFeed = async (req, res) => {
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10)); // Between 1 and 50
     const skip = (page - 1) * limit;
     
-    // Validate category if provided
+    // Get category from query params
     const category = req.query.category;
-    if (category && !mongoose.Types.ObjectId.isValid(category)) {
-      return res.status(400).json({ message: 'Invalid category ID format' });
-    }
     
     const userId = req.user ? req.user._id : null;
     
@@ -93,17 +89,16 @@ export const getVideoFeed = async (req, res) => {
     const query = { isPublished: true };
     
     // Filter by category if specified
-    if (category) {
-      query.categories = mongoose.Types.ObjectId(category);
+    if (category && category !== 'For You') {
+      query.categories = category;
     }
     
-    // Find videos with populated creator and categories
+    // Find videos with populated creator
     let feedQuery = Video.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('creator', 'name profilePicture')
-      .populate('categories', 'name icon color');
+      .populate('creator', 'name profilePicture');
     
     // If user is authenticated, include information about likes and bookmarks
     if (userId) {
@@ -450,102 +445,12 @@ export const getVideoById = async (req, res) => {
  */
 export const getCategories = async (req, res) => {
   try {
-    // Create cache key
-    const cacheKey = `${CACHE_KEYS.CATEGORIES}all`;
-    
-    // Try to get from cache
-    const cachedData = await getCache(cacheKey);
-    if (cachedData) {
-      return res.json(cachedData);
-    }
-    
-    // Fetch all active categories
-    const categories = await Category.find({ isActive: true })
-      .sort({ sortOrder: 1, name: 1 });
-    
-    // Cache the result (longer TTL for categories)
-    await setCache(cacheKey, categories, 86400); // 24 hours
-    
-    res.json(categories);
+    // Import categories from frontend config to ensure consistency
+    const { APP_CATEGORIES } = await import('../../front-end/src/config/categories.js');
+    res.json(APP_CATEGORIES);
   } catch (error) {
     console.error('Error fetching categories:', error);
     res.status(500).json({ message: 'Error fetching categories', error: error.message });
-  }
-};
-
-/**
- * Get videos by category
- * @route GET /api/videos/category/:id
- * @access Public
- */
-export const getVideosByCategory = async (req, res) => {
-  try {
-    const categoryId = req.params.id;
-    
-    // Validate if ID is a valid ObjectId
-    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
-      return res.status(400).json({ message: 'Invalid category ID format' });
-    }
-    
-    // Parse and validate pagination parameters
-    const page = Math.max(1, parseInt(req.query.page) || 1); // Ensure page is at least 1
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10)); // Between 1 and 50
-    const skip = (page - 1) * limit;
-    
-    const userId = req.user ? req.user._id : null;
-    
-    // Create cache key
-    const cacheKey = `${CACHE_KEYS.CATEGORIES}${categoryId}:${page}:${limit}:${userId || 'anon'}`;
-    
-    // Try to get from cache
-    const cachedData = await getCache(cacheKey);
-    if (cachedData) {
-      return res.json(cachedData);
-    }
-    
-    // Find the category
-    const category = await Category.findById(categoryId);
-    if (!category) {
-      return res.status(404).json({ message: 'Category not found' });
-    }
-    
-    if (!category.isActive) {
-      return res.status(404).json({ message: 'Category is not active' });
-    }
-    
-    // Find videos in this category
-    const query = { 
-      categories: categoryId,
-      isPublished: true 
-    };
-    
-    const videos = await Video.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate('creator', 'name profilePicture')
-      .populate('categories', 'name icon color');
-    
-    const total = await Video.countDocuments(query);
-    
-    const responseData = {
-      category,
-      videos,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    };
-    
-    // Cache the result
-    await setCache(cacheKey, responseData);
-    
-    res.json(responseData);
-  } catch (error) {
-    console.error('Error fetching videos by category:', error);
-    res.status(500).json({ message: 'Error fetching videos by category', error: error.message });
   }
 };
 

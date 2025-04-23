@@ -2,8 +2,8 @@ import express from 'express';
 import { 
   streamVideoById, 
   getVideoFeed, 
-  getVideoById, 
-  getVideosByCategory,
+  getVideoById,
+  getCategories,
   bookmarkVideo,
   removeBookmark,
   getUserBookmarks,
@@ -19,7 +19,7 @@ const router = express.Router();
 
 // Public routes
 router.get('/feed', getVideoFeed);
-router.get('/category/:id', getVideosByCategory);
+router.get('/categories', getCategories);
 router.get('/:id', getVideo);
 router.get('/:id/stream', streamVideoById);
 router.get('/', getAllVideos);

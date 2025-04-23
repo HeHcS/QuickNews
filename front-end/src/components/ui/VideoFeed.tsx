@@ -8,6 +8,7 @@ import Comments from './Comments';
 import { usePathname, useRouter } from 'next/navigation';
 import axios from 'axios';
 import ArticlePopup from './ArticlePopup';
+import { APP_CATEGORIES } from '../../config/categories';
 
 interface Video {
   id: string;
@@ -318,8 +319,8 @@ export default function VideoFeed() {
   const pathname = usePathname();
   const router = useRouter();
   
-  // Define categories in the same order as TopNav
-  const categories = ['Breaking', 'Politics', 'For You', 'Tech', 'Business', 'Following'];
+  // Use category names from our configuration
+  const categories = APP_CATEGORIES.map(cat => cat.name);
   
   // Determine current category based on pathname
   const currentCategory = pathname === '/' || pathname === '/foryou' ? 'For You' : 
@@ -373,9 +374,8 @@ export default function VideoFeed() {
         setIsLoading(true);
         setError(null);
         
-        // Only send category if it's a valid MongoDB ObjectId
-        const params = currentCategory === 'For You' ? {} : 
-          /^[0-9a-fA-F]{24}$/.test(currentCategory) ? { category: currentCategory } : {};
+        // Send category parameter if not "For You"
+        const params = currentCategory === 'For You' ? {} : { category: currentCategory };
         
         console.log('Fetching videos with params:', params);
         console.log('Current category:', currentCategory);

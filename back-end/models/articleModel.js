@@ -28,8 +28,8 @@ const articleSchema = new mongoose.Schema({
     trim: true
   }],
   categories: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category'
+    type: String,
+    trim: true
   }],
   relatedVideo: {
     type: mongoose.Schema.Types.ObjectId,
