@@ -6,6 +6,15 @@ import BottomNav from '@/components/ui/BottomNav';
 import { Menu, Play, UserSquare, Bookmark, ArrowLeft, Heart, MessageCircle, Share2 } from 'lucide-react';
 import Comments from '@/components/ui/Comments';
 import ArticlePopup from '@/components/ui/ArticlePopup';
+import VideoFeed2 from '@/components/ui/VideoFeed2';
+
+// Calculate responsive sizes based on viewport height (700px reference)
+const getResponsiveSize = (baseSize: number): string => {
+  // Convert base size to vh units (700px = 100vh reference)
+  const vhSize = (baseSize / 700) * 100;
+  // Only use vh units for responsive scaling, with a minimum size to prevent text from becoming too small
+  return `max(${baseSize * 0.5}px, ${vhSize}vh)`;
+};
 
 // Add global styles to hide scrollbar
 const scrollbarHideStyles = `
@@ -183,13 +192,13 @@ export default function CreatorPage() {
   const handle = (params?.handle as string)?.replace('@', '') || '';
   const [activeTab, setActiveTab] = useState('posts');
   const [selectedVideo, setSelectedVideo] = useState<any>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
-  const [isCaptionsExpanded, setIsCaptionsExpanded] = useState(false);
-  const [isArticleOpen, setIsArticleOpen] = useState(false);
   const [selectedArticle, setSelectedArticle] = useState<any>(null);
+  const [isArticleOpen, setIsArticleOpen] = useState(false);
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isCaptionsExpanded, setIsCaptionsExpanded] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
   
   // Mock user data based on handle
   const userData = {
@@ -244,16 +253,17 @@ export default function CreatorPage() {
   ];
 
   const handleVideoClick = (video: any) => {
-    setSelectedVideo(video);
-    setIsPlaying(true);
-    setIsLiked(false);
-    setIsCaptionsExpanded(false);
-    setIsArticleOpen(false);
+    setSelectedVideo({
+      ...video,
+      url: video.videoFile // Map videoFile to url for VideoFeed2
+    });
   };
 
   const handleBackClick = () => {
     setSelectedVideo(null);
     setIsPlaying(false);
+    setIsCaptionsExpanded(false);
+    setIsCommentsOpen(false);
     setIsArticleOpen(false);
   };
 
@@ -301,146 +311,11 @@ export default function CreatorPage() {
     if (selectedVideo) {
       return (
         <div className="absolute inset-0 bg-black z-10">
-          {/* Back Button */}
-          <div className="absolute top-4 left-4 z-50">
-            <button 
-              onClick={handleBackClick}
-              className="flex items-center justify-center w-10 h-10 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
-            >
-              <ArrowLeft size={20} />
-            </button>
-          </div>
-          
-          {/* Video Player */}
-          <div 
-            className="absolute inset-0 flex items-center justify-center"
-            onClick={togglePlay}
-          >
-            <video
-              ref={videoRef}
-              src={selectedVideo.videoFile}
-              className="w-full h-full object-cover"
-              loop
-              playsInline
-              autoPlay
-            />
-            
-            {/* Play/Pause Indicator */}
-            {!isPlaying && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="w-12 h-12 flex items-center justify-center rounded-full bg-black/40 text-white">
-                  <Play size={24} />
-                </div>
-              </div>
-            )}
-            
-            {/* Bottom Gradient Overlay */}
-            <div 
-              className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent transition-all duration-500 ease-in-out ${
-                isCaptionsExpanded ? 'h-[300px]' : 'h-[200px]'
-              }`}
-            />
-          </div>
-          
-          {/* Video Info Overlay */}
-          <div className="absolute inset-0 z-20 pointer-events-none">
-            {/* Captions Section */}
-            <div className="absolute bottom-[112px] left-0 right-[50px] p-4 text-white pointer-events-auto">
-              <h2 className="text-xl font-bold mb-3 -mr-[50px]">{selectedVideo.title}</h2>
-              <div className="relative">
-                <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
-                  isCaptionsExpanded ? 'h-auto' : 'h-[48px]'
-                }`}>
-                  <p className="text-xs leading-relaxed">
-                    This is a sample caption for the video. It provides context and additional information about the content you're watching. The captions can be expanded to show more text.
-                  </p>
-                </div>
-                <div className="relative mt-1 bg-transparent">
-                  <button 
-                    onClick={toggleCaptions}
-                    className="text-blue-400 text-xs font-medium hover:text-blue-300 transition-all duration-500 ease-in-out"
-                  >
-                    {isCaptionsExpanded ? 'Show less' : 'Read more'}
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Creator Info */}
-            <div className="absolute bottom-[70px] left-0 right-0 p-2.5 text-white pointer-events-auto">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <img
-                    src={selectedVideo.creator.avatar}
-                    alt={selectedVideo.creator.name}
-                    className="w-10 h-10 rounded-full border border-white/20"
-                  />
-                  <div>
-                    <h3 className="font-semibold text-sm leading-tight hover:text-blue-400 transition-colors">{selectedVideo.creator.name}</h3>
-                    <h4 className="text-white/70 text-[10px] leading-tight hover:text-blue-400 transition-colors">@{selectedVideo.creator.name.toLowerCase().replace(/\s+/g, '')}</h4>
-                  </div>
-                  <button 
-                    className="pointer-events-auto px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full hover:bg-blue-600 transition-colors"
-                  >
-                    Subscribe
-                  </button>
-                </div>
-                <button 
-                  onClick={openArticle}
-                  className="pointer-events-auto px-3 py-1 bg-blue-500 text-white text-xs font-medium rounded-full hover:bg-blue-600 transition-colors"
-                >
-                  Full Article
-                </button>
-              </div>
-            </div>
-
-            {/* Engagement Buttons */}
-            <div className="absolute bottom-[160px] right-4 flex flex-col space-y-4 pointer-events-auto">
-              <div className="flex flex-col items-center">
-                <button 
-                  onClick={toggleLike}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-                >
-                  {isLiked ? <Heart className="text-red-500" size={20} /> : <Heart size={20} />}
-                </button>
-                <span className="text-white text-xs mt-1">{isLiked ? selectedVideo.likes + 1 : selectedVideo.likes}</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <button 
-                  onClick={toggleComments}
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-                >
-                  <MessageCircle size={20} />
-                </button>
-                <span className="text-white text-xs mt-1">{selectedVideo.comments}</span>
-              </div>
-              <div className="flex flex-col items-center">
-                <button 
-                  className="w-10 h-10 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors"
-                >
-                  <Share2 size={20} />
-                </button>
-                <span className="text-white text-xs mt-1">Share</span>
-              </div>
-            </div>
-          </div>
-          
-          {/* Comments Component */}
-          <Comments 
-            isOpen={isCommentsOpen}
-            onClose={() => setIsCommentsOpen(false)}
-            comments={sampleComments}
+          <VideoFeed2 
+            videos={[selectedVideo]} 
+            creatorHandle={typeof handle === 'string' ? handle : undefined} 
+            onClose={handleBackClick}
           />
-          
-          {/* Article Popup */}
-          {selectedArticle && (
-            <ArticlePopup 
-              isOpen={isArticleOpen}
-              onClose={() => setIsArticleOpen(false)}
-              title={selectedArticle.title}
-              content={selectedArticle.content}
-            />
-          )}
         </div>
       );
     }
@@ -458,8 +333,8 @@ export default function CreatorPage() {
                 <div className="absolute inset-0 flex items-center justify-center">
                   <Play size={24} className="text-white opacity-70" />
                 </div>
-                <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black to-transparent">
-                  <p className="text-white text-xs truncate">{video.title}</p>
+                <div style={{ padding: getResponsiveSize(8) }} className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent">
+                  <p style={{ fontSize: getResponsiveSize(10) }} className="text-white truncate">{video.title}</p>
                 </div>
               </div>
             ))}
@@ -498,69 +373,110 @@ export default function CreatorPage() {
                 router.push('/foryou');
               }
             }}
-            className="flex items-center justify-center w-10 h-10 rounded-full bg-black/50 text-white hover:bg-black/70 transition-colors"
+            style={{
+              width: getResponsiveSize(40),
+              height: getResponsiveSize(40),
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderRadius: '9999px',
+              backgroundColor: 'transparent',
+              color: 'white',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.2)'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
           >
-            <span className="text-xl">←</span>
+            <span style={{ fontSize: getResponsiveSize(20) }}>←</span>
           </button>
         </div>
         
         {/* Profile Header */}
         <div className="relative">
           {/* Cover Image - Dark Blue Background */}
-          <div className="h-48 bg-blue-900 rounded-b-3xl" />
+          <div style={{ height: getResponsiveSize(192) }} className="bg-blue-900 rounded-b-3xl" />
           
           {/* Profile Info */}
-          <div className="px-4 pb-4">
-            <div className="flex flex-col items-center -mt-14">
+          <div style={{ padding: getResponsiveSize(16) }} className="pb-4">
+            <div className="flex flex-col items-center" style={{ marginTop: getResponsiveSize(-140) }}>
               {/* Profile Image */}
-              <div className="w-[100px] h-[100px] rounded-full overflow-hidden bg-gray-800">
+              <div style={{ width: getResponsiveSize(100), height: getResponsiveSize(100) }} className="rounded-full overflow-hidden bg-gray-800">
                 <img
                   src={userData.avatar}
                   alt={userData.name}
                   className="w-full h-full object-cover"
+                  style={{ width: getResponsiveSize(100), height: getResponsiveSize(100) }}
                 />
               </div>
 
               {/* Profile Name and Handle */}
               <div className="text-center">
-                <h1 className="text-base font-bold">{userData.name}</h1>
-                <h2 className="text-gray-400 text-[8px]">@{userData.handle}</h2>
+                <h1 style={{ fontSize: getResponsiveSize(16) }} className="font-bold flex items-center justify-center gap-1">
+                  {userData.name}
+                  <span className="text-[#29ABE2]">
+                    <svg 
+                      style={{ width: getResponsiveSize(16), height: getResponsiveSize(16) }} 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" 
+                        stroke="currentColor" 
+                        strokeWidth="2" 
+                        strokeLinecap="round" 
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </span>
+                </h1>
+                <h2 style={{ fontSize: getResponsiveSize(11) }} className="text-gray-400">@{userData.handle}</h2>
               </div>
 
               {/* Stats */}
-              <div className="flex gap-10 mt-2">
+              <div style={{ gap: getResponsiveSize(40) }} className="flex mt-3">
                 <div className="text-center">
-                  <div className="text-xs font-bold">{userData.stats.posts}</div>
-                  <div className="text-[8px] text-gray-400">Posts</div>
+                  <div style={{ fontSize: getResponsiveSize(14) }} className="font-bold">{userData.stats.posts}</div>
+                  <div style={{ fontSize: getResponsiveSize(10) }} className="text-gray-400">Posts</div>
                 </div>
-                <div className="text-center ml-[18px]">
-                  <div className="text-xs font-bold">{userData.stats.followers}</div>
-                  <div className="text-[8px] text-gray-400">Followers</div>
+                <div style={{ marginLeft: getResponsiveSize(20) }} className="text-center">
+                  <div style={{ fontSize: getResponsiveSize(14) }} className="font-bold">{userData.stats.followers}</div>
+                  <div style={{ fontSize: getResponsiveSize(10) }} className="text-gray-400">Followers</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-xs font-bold">{userData.stats.following}</div>
-                  <div className="text-[8px] text-gray-400">Following</div>
+                  <div style={{ fontSize: getResponsiveSize(14) }} className="font-bold">{userData.stats.following}</div>
+                  <div style={{ fontSize: getResponsiveSize(10) }} className="text-gray-400">Following</div>
                 </div>
               </div>
 
               {/* Follow and Message Buttons */}
-              <div className="flex gap-2 mt-2">
+              <div style={{ gap: getResponsiveSize(8) }} className="flex mt-2">
                 <button 
                   onClick={() => {}} 
-                  className="bg-blue-500 text-white py-1.5 px-3 rounded-full text-[8px] font-medium hover:bg-blue-600 transition-colors w-16"
+                  style={{ 
+                    padding: `${getResponsiveSize(6)} ${getResponsiveSize(12)}`,
+                    fontSize: getResponsiveSize(8)
+                  }}
+                  className="bg-blue-500 text-white rounded-full font-medium hover:bg-blue-600 transition-colors"
                 >
                   Follow
                 </button>
                 <button 
                   onClick={() => {}} 
-                  className="bg-blue-500 text-white py-1.5 px-3 rounded-full text-[8px] font-medium hover:bg-blue-600 transition-colors w-16"
+                  style={{ 
+                    padding: `${getResponsiveSize(6)} ${getResponsiveSize(12)}`,
+                    fontSize: getResponsiveSize(8)
+                  }}
+                  className="bg-blue-500 text-white rounded-full font-medium hover:bg-blue-600 transition-colors"
                 >
                   Message
                 </button>
               </div>
 
               {/* Bio */}
-              <p className="mt-2 text-[8px] text-center text-gray-300">
+              <p style={{ 
+                marginTop: getResponsiveSize(8),
+                fontSize: getResponsiveSize(8)
+              }} className="text-center text-gray-300">
                 {userData.bio}
               </p>
             </div>

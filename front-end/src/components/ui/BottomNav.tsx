@@ -4,6 +4,7 @@ import { useState, useEffect, ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Link as LinkIcon, UserRound } from 'lucide-react';
+import { getResponsiveSize } from '@/utils/responsiveSize';
 
 interface NavItem {
   id: string;
@@ -37,26 +38,43 @@ export default function BottomNav() {
   };
 
   return (
-    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-[#1A1A1A] rounded-full px-4 py-2 shadow-lg">
-      <div className="flex items-center space-x-6">
+    <div style={{ 
+      bottom: getResponsiveSize(12),
+      padding: `${getResponsiveSize(6)} ${getResponsiveSize(16)}`,
+      gap: getResponsiveSize(20),
+      width: getResponsiveSize(320)
+    }} className="absolute left-1/2 -translate-x-1/2 bg-[#1A1A1A] rounded-full shadow-lg">
+      <div className="flex items-center justify-between w-full">
         {navItems.map((item) => (
           <button
             key={item.id}
             onClick={() => handleNavigation(item.path, item.id)}
-            className={`w-10 h-10 rounded-full flex items-center justify-center text-white transition-colors duration-200 ${
+            style={{
+              width: getResponsiveSize(40),
+              height: getResponsiveSize(40)
+            }}
+            className={`rounded-full flex items-center justify-center text-white transition-colors duration-200 ${
               activePage === item.id ? 'bg-blue-500' : 'hover:opacity-80'
             }`}
           >
             {item.isImage ? (
-              <Image 
-                src={item.icon as string}
-                alt={item.id}
-                width={24}
-                height={24}
-                className="transform transition-transform duration-300"
-              />
+              <div style={{ width: getResponsiveSize(24), height: getResponsiveSize(24) }}>
+                <Image 
+                  src={item.icon as string}
+                  alt={item.id}
+                  width={24}
+                  height={24}
+                  className="w-full h-full transform transition-transform duration-300"
+                />
+              </div>
             ) : (
-              <span className="text-xl">{item.icon}</span>
+              <div style={{ width: getResponsiveSize(24), height: getResponsiveSize(24) }}>
+                {item.id === 'messages' ? (
+                  <LinkIcon size={24} className="w-full h-full" />
+                ) : (
+                  <UserRound size={24} className="w-full h-full" />
+                )}
+              </div>
             )}
           </button>
         ))}

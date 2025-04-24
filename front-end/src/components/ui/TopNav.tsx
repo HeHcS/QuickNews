@@ -3,8 +3,16 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import { Mail, Menu } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import SideBar from './SideBar';
+
+// Calculate responsive sizes based on viewport height (700px reference)
+const getResponsiveSize = (baseSize: number): string => {
+  // Convert base size to vh units (700px = 100vh reference)
+  const vhSize = (baseSize / 700) * 100;
+  // Only use vh units for responsive scaling, with a minimum size to prevent text from becoming too small
+  return `max(${baseSize * 0.5}px, ${vhSize}vh)`;
+};
 
 const categories = [
   { name: 'Breaking', path: '/breaking' },
@@ -41,18 +49,23 @@ export default function TopNav() {
             {/* Menu Icon */}
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="w-8 h-8 flex items-center justify-center text-white hover:text-white/80 transition-colors select-none"
+              style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}
+              className="flex items-center justify-center text-white hover:text-white/80 transition-colors select-none"
             >
-              <Menu size={24} strokeWidth={2.5} className="transform transition-transform duration-300 hover:scale-110" />
+              <Menu style={{ width: getResponsiveSize(24), height: getResponsiveSize(24) }} strokeWidth={2.5} className="transform transition-transform duration-300 hover:scale-110" />
             </button>
 
             {/* Categories */}
-            <div className="flex space-x-0.5 overflow-x-auto scrollbar-hide items-center max-w-[280px] bg-black/30 backdrop-blur-sm rounded-full px-1.5 py-1 select-none">
+            <div style={{ gap: getResponsiveSize(2), maxWidth: getResponsiveSize(360) }} className="flex overflow-x-auto scrollbar-hide items-center bg-black/30 backdrop-blur-sm rounded-full px-1.5 py-1 select-none">
               {categories.map((category) => (
                 <button
                   key={category.name}
                   onClick={() => handleCategoryClick(category)}
-                  className={`px-1.5 py-1 text-[8px] font-medium rounded-full whitespace-nowrap transition-colors select-none
+                  style={{ 
+                    padding: `${getResponsiveSize(4)} ${getResponsiveSize(6)}`,
+                    fontSize: getResponsiveSize(8)
+                  }}
+                  className={`font-medium rounded-full whitespace-nowrap transition-colors select-none
                     ${activeCategory === category.name
                       ? 'bg-[#29ABE2] text-white'
                       : 'text-white/90 hover:text-white'
@@ -63,9 +76,16 @@ export default function TopNav() {
               ))}
             </div>
 
-            {/* Mail Icon */}
-            <button className="w-8 h-8 flex items-center justify-center text-white hover:text-white/80 transition-colors select-none">
-              <Mail size={24} strokeWidth={2.5} className="transform transition-transform duration-300 hover:scale-110" />
+            {/* Log in Button */}
+            <button 
+              onClick={() => router.push('/create')}
+              style={{ 
+                padding: `${getResponsiveSize(4)} ${getResponsiveSize(10)}`,
+                fontSize: getResponsiveSize(10)
+              }}
+              className="bg-[#29ABE2] text-white font-medium rounded-full hover:bg-[#29ABE2]/80 transition-colors select-none"
+            >
+              Log in
             </button>
           </div>
         </div>

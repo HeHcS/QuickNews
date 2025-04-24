@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useInView } from 'react-intersection-observer';
 import TopNav from './TopNav';
 import BottomNav from './BottomNav';
@@ -8,7 +8,7 @@ import Comments from './Comments';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import ArticlePopup from './ArticlePopup';
 import Link from 'next/link';
-import { Heart, Share2, Play } from 'lucide-react';
+import { Heart, Share2, Play, Pause } from 'lucide-react';
 import Image from 'next/image';
 
 interface Video {
@@ -327,6 +327,22 @@ const generateVideoContent = (videoFile: string | undefined) => {
   };
 };
 
+// Helper function for responsive sizing based on viewport height
+const clamp = (min: number, val: number, max: number): number => {
+  return Math.min(Math.max(min, val), max);
+};
+
+// Calculate responsive sizes based on viewport height (700px reference)
+const getResponsiveSize = (baseSize: number): string => {
+  // Convert base size to vh units (700px = 100vh reference)
+  const vhSize = (baseSize / 700) * 100;
+  // Only use vh units for responsive scaling, with a minimum size to prevent text from becoming too small
+  return `max(${baseSize * 0.5}px, ${vhSize}vh)`;
+};
+
+// Add this at the top of the file, after imports
+const currentlyPlayingVideoRef = { current: null as HTMLVideoElement | null };
+
 function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isArticleOpen, onArticleOpenChange }: VideoPostProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -335,6 +351,10 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
   const [animationPhase, setAnimationPhase] = useState<'idle' | 'phase1' | 'phase2' | 'phase3'>('idle');
   const [isCaptionsExpanded, setIsCaptionsExpanded] = useState(false);
   const [showSparkles, setShowSparkles] = useState(false);
+  const [showPlayPause, setShowPlayPause] = useState(false);
+  const [isPlayPauseFading, setIsPlayPauseFading] = useState(false);
+  const playPauseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { ref, inView } = useInView({
     threshold: 0.7,
   });
@@ -342,23 +362,30 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
   // Double tap to like states
   const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
   const [doubleTapPosition, setDoubleTapPosition] = useState({ x: 0, y: 0 });
-  const pauseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   // Double tap detection refs
   const lastTapTimeRef = useRef<number>(0);
   const tapCountRef = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const isDoubleTapRef = useRef<boolean>(false);
-  const isPausedRef = useRef<boolean>(false);
+
+  // Add seek bar related state and refs
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isSeekbarDragging, setIsSeekbarDragging] = useState(false);
+  const seekbarRef = useRef<HTMLDivElement>(null);
 
   // Reset states when video changes or becomes inactive
   useEffect(() => {
     setIsLiked(false);
     setIsCaptionsExpanded(false);
     // Clear any pending pause timeout
-    if (pauseTimeoutRef.current) {
-      clearTimeout(pauseTimeoutRef.current);
-      pauseTimeoutRef.current = null;
+    if (playPauseTimeoutRef.current) {
+      clearTimeout(playPauseTimeoutRef.current);
+      playPauseTimeoutRef.current = null;
+    }
+    if (fadeTimeoutRef.current) {
+      clearTimeout(fadeTimeoutRef.current);
     }
   }, [video.id, isActive]);
 
@@ -384,28 +411,31 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     const videoElement = videoRef.current;
 
     if (isActive && inView) {
-      // If the video was manually paused, don't auto-play it
-      if (!isPausedRef.current) {
+      // If there's another video playing, pause it first
+      if (currentlyPlayingVideoRef.current && currentlyPlayingVideoRef.current !== videoElement) {
+        currentlyPlayingVideoRef.current.pause();
+      }
+      
+      // Set this as the currently playing video
+      currentlyPlayingVideoRef.current = videoElement;
+      
+      // Force autoplay when active and in view
       const playPromise = videoElement.play();
       if (playPromise !== undefined) {
         playPromise
           .then(() => setIsPlaying(true))
           .catch(() => setIsPlaying(false));
-        }
       }
     } else {
       videoElement.pause();
       setIsPlaying(false);
+      
+      // If this was the currently playing video, clear the reference
+      if (currentlyPlayingVideoRef.current === videoElement) {
+        currentlyPlayingVideoRef.current = null;
+      }
     }
   }, [isActive, inView]);
-
-  // Reset isPausedRef when isActive changes
-  useEffect(() => {
-    if (isActive) {
-      // When a video becomes active, reset the paused state
-      isPausedRef.current = false;
-    }
-  }, [isActive]);
 
   // Force autoplay when component mounts
   useEffect(() => {
@@ -413,23 +443,51 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     
     const videoElement = videoRef.current;
     
-    // Force autoplay on mount
-    const playPromise = videoElement.play();
-    if (playPromise !== undefined) {
-      playPromise
-        .then(() => setIsPlaying(true))
-        .catch(() => setIsPlaying(false));
+    // If there's another video playing, pause it first
+    if (currentlyPlayingVideoRef.current && currentlyPlayingVideoRef.current !== videoElement) {
+      currentlyPlayingVideoRef.current.pause();
+    }
+    
+    // Only set this as the currently playing video and autoplay if it's active
+    if (isActive) {
+      // Set this as the currently playing video
+      currentlyPlayingVideoRef.current = videoElement;
+      
+      // Force autoplay on mount
+      const playPromise = videoElement.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => setIsPlaying(true))
+          .catch(() => setIsPlaying(false));
+      }
+    } else {
+      // Make sure it's paused if not active
+      videoElement.pause();
+      setIsPlaying(false);
     }
     
     // Add event listener for when video is loaded
     const handleLoadedData = () => {
-      if (!isPausedRef.current) {
+      // If there's another video playing, pause it first
+      if (currentlyPlayingVideoRef.current && currentlyPlayingVideoRef.current !== videoElement) {
+        currentlyPlayingVideoRef.current.pause();
+      }
+      
+      // Only set this as the currently playing video and autoplay if it's active
+      if (isActive) {
+        // Set this as the currently playing video
+        currentlyPlayingVideoRef.current = videoElement;
+        
         const playPromise = videoElement.play();
         if (playPromise !== undefined) {
           playPromise
             .then(() => setIsPlaying(true))
             .catch(() => setIsPlaying(false));
         }
+      } else {
+        // Make sure it's paused if not active
+        videoElement.pause();
+        setIsPlaying(false);
       }
     };
     
@@ -437,149 +495,88 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     
     return () => {
       videoElement.removeEventListener('loadeddata', handleLoadedData);
-    };
-  }, []);
-
-  // Clean up timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (pauseTimeoutRef.current) {
-        clearTimeout(pauseTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Set up double tap detection
-  useEffect(() => {
-    if (!containerRef.current) return;
-    
-    const container = containerRef.current;
-    
-    const handleTap = (e: MouseEvent | TouchEvent) => {
-      // Don't trigger if clicking on interactive elements
-      const target = e.target as HTMLElement;
-      if (
-        target.closest('a') ||
-        target.closest('button') ||
-        target.closest('.interactive-element')
-      ) {
-        return;
-      }
       
-      const currentTime = new Date().getTime();
-      const timeDiff = currentTime - lastTapTimeRef.current;
-      
-      // Get position based on event type
-      let clientX, clientY;
-      if (e instanceof MouseEvent) {
-        clientX = e.clientX;
-        clientY = e.clientY;
-      } else {
-        clientX = e.touches[0].clientX;
-        clientY = e.touches[0].clientY;
-      }
-      
-      // If this is the second tap within 500ms
-      if (timeDiff < 500) {
-        // Double tap detected
-        isDoubleTapRef.current = true;
-        tapCountRef.current = 0;
-        setDoubleTapPosition({ x: clientX, y: clientY });
-        setShowDoubleTapHeart(true);
-        
-        // Like the video if not already liked
-        if (!isLiked) {
-          setIsLiked(true);
-        }
-        
-        // Hide the heart animation after 1 second
-        setTimeout(() => {
-          setShowDoubleTapHeart(false);
-        }, 1000);
-        
-        // Cancel any pending pause timeout
-        if (pauseTimeoutRef.current) {
-          clearTimeout(pauseTimeoutRef.current);
-          pauseTimeoutRef.current = null;
-        }
-        
-        // Prevent the default behavior to avoid pausing
-        e.preventDefault();
-        e.stopPropagation();
-      } else {
-        // First tap - set up for potential double tap
-        isDoubleTapRef.current = false;
-        tapCountRef.current = 1;
-        lastTapTimeRef.current = currentTime;
-        
-        // Set a timeout to handle single tap (pause) if no second tap occurs
-        if (pauseTimeoutRef.current) {
-          clearTimeout(pauseTimeoutRef.current);
-        }
-        
-        pauseTimeoutRef.current = setTimeout(() => {
-          // If we're still at tap count 1 after the timeout and it wasn't a double tap
-          if (tapCountRef.current === 1 && !isDoubleTapRef.current) {
-            // Single tap - pause the video
-            const video = videoRef.current;
-            if (video && !video.paused) {
-              video.pause();
-              setIsPlaying(false);
-              isPausedRef.current = true;
-            }
-          }
-          tapCountRef.current = 0;
-        }, 500); // 500ms delay for single tap
+      // If this was the currently playing video, clear the reference
+      if (currentlyPlayingVideoRef.current === videoElement) {
+        currentlyPlayingVideoRef.current = null;
       }
     };
-    
-    // Add event listeners
-    container.addEventListener('click', handleTap);
-    container.addEventListener('touchend', handleTap);
-    
-    // Clean up
-    return () => {
-      container.removeEventListener('click', handleTap);
-      container.removeEventListener('touchend', handleTap);
-    };
-  }, [isLiked]);
+  }, [isActive]);
 
-  const togglePlay = (e: React.MouseEvent) => {
+  // Handle screen tap for play/pause
+  const handleScreenTap = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     e.preventDefault();
+    
+    // Clear existing timeouts
+    if (playPauseTimeoutRef.current) {
+      clearTimeout(playPauseTimeoutRef.current);
+    }
+    if (fadeTimeoutRef.current) {
+      clearTimeout(fadeTimeoutRef.current);
+    }
+    
+    // Reset fade state and show button
+    setIsPlayPauseFading(false);
+    setShowPlayPause(true);
+    
+    // Start fade out after 1 second
+    playPauseTimeoutRef.current = setTimeout(() => {
+      setIsPlayPauseFading(true);
+      
+      // Hide button after fade animation completes
+      fadeTimeoutRef.current = setTimeout(() => {
+        setShowPlayPause(false);
+        setIsPlayPauseFading(false);
+      }, 500); // Match this with CSS transition duration
+        }, 1000);
+        
+    // Toggle play/pause
+    togglePlay(e);
+  };
+
+  const togglePlay = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
     const video = videoRef.current;
     if (!video) return;
 
     // Clear any pending pause timeout to prevent conflicts
-    if (pauseTimeoutRef.current) {
-      clearTimeout(pauseTimeoutRef.current);
-      pauseTimeoutRef.current = null;
+    if (playPauseTimeoutRef.current) {
+      clearTimeout(playPauseTimeoutRef.current);
+      playPauseTimeoutRef.current = null;
     }
 
     if (video.paused) {
+      // If there's another video playing, pause it first
+      if (currentlyPlayingVideoRef.current && currentlyPlayingVideoRef.current !== video) {
+        currentlyPlayingVideoRef.current.pause();
+      }
+      
+      // Set this as the currently playing video
+      currentlyPlayingVideoRef.current = video;
+      
       // Play the video immediately
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
             setIsPlaying(true);
-            isPausedRef.current = false;
-            // Reset tap detection state when manually playing
-            tapCountRef.current = 0;
-            isDoubleTapRef.current = false;
+            setIsPlayPauseFading(false);
           })
-          .catch((error) => {
-            console.error('Error playing video:', error);
-            setIsPlaying(false);
-          });
+          .catch(() => setIsPlaying(false));
       }
     } else {
-      // Set a timeout to pause the video after delay
-      pauseTimeoutRef.current = setTimeout(() => {
+      // Pause the video immediately
       video.pause();
       setIsPlaying(false);
-        isPausedRef.current = true;
-      }, 500); // 500ms delay for pause
+      setIsPlayPauseFading(true);
+      
+      // If this was the currently playing video, clear the reference
+      if (currentlyPlayingVideoRef.current === video) {
+        currentlyPlayingVideoRef.current = null;
+      }
     }
   };
 
@@ -635,21 +632,15 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       : 'bg-[#29ABE2] text-white scale-100 rotate-0';
   };
 
-  // Update isPlaying state based on video's actual playing state
+  // Cleanup timeouts on unmount
   useEffect(() => {
-    if (!videoRef.current) return;
-    
-    const videoElement = videoRef.current;
-    
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-    
-    videoElement.addEventListener('play', handlePlay);
-    videoElement.addEventListener('pause', handlePause);
-    
     return () => {
-      videoElement.removeEventListener('play', handlePlay);
-      videoElement.removeEventListener('pause', handlePause);
+      if (playPauseTimeoutRef.current) {
+        clearTimeout(playPauseTimeoutRef.current);
+      }
+      if (fadeTimeoutRef.current) {
+        clearTimeout(fadeTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -657,147 +648,18 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     <div 
       ref={containerRef}
       className="relative w-full h-full snap-start bg-black"
-      onClick={(e) => {
-        const target = e.target as HTMLElement;
-        // Don't trigger if clicking on interactive elements
-        if (
-          target.closest('a') ||
-          target.closest('button') ||
-          target.closest('.interactive-element')
-        ) {
-          return;
-        }
-        
-        const currentTime = new Date().getTime();
-        const timeDiff = currentTime - lastTapTimeRef.current;
-        
-        // If this is the second tap within 500ms
-        if (timeDiff < 500) {
-          // Double tap detected
-          isDoubleTapRef.current = true;
-          tapCountRef.current = 0;
-          setDoubleTapPosition({ x: e.clientX, y: e.clientY });
-          setShowDoubleTapHeart(true);
-          
-          // Like the video if not already liked
-          if (!isLiked) {
-            setIsLiked(true);
-          }
-          
-          // Hide the heart animation after 1 second
-          setTimeout(() => {
-            setShowDoubleTapHeart(false);
-          }, 1000);
-          
-          // Cancel any pending pause timeout
-          if (pauseTimeoutRef.current) {
-            clearTimeout(pauseTimeoutRef.current);
-            pauseTimeoutRef.current = null;
-          }
-        } else {
-          // First tap - set up for potential double tap
-          isDoubleTapRef.current = false;
-          tapCountRef.current = 1;
-          lastTapTimeRef.current = currentTime;
-          
-          // Set a timeout to handle single tap (pause) if no second tap occurs
-          if (pauseTimeoutRef.current) {
-            clearTimeout(pauseTimeoutRef.current);
-          }
-          
-          pauseTimeoutRef.current = setTimeout(() => {
-            // If we're still at tap count 1 after the timeout and it wasn't a double tap
-            if (tapCountRef.current === 1 && !isDoubleTapRef.current) {
-              // Single tap - pause the video
-              const video = videoRef.current;
-              if (video && !video.paused) {
-                video.pause();
-                setIsPlaying(false);
-                isPausedRef.current = true;
-              }
-            }
-            tapCountRef.current = 0;
-          }, 500); // 500ms delay for single tap
-        }
-      }}
-      onTouchEnd={(e) => {
-        const target = e.target as HTMLElement;
-        // Don't trigger if touching interactive elements
-        if (
-          target.closest('a') ||
-          target.closest('button') ||
-          target.closest('.interactive-element')
-        ) {
-          return;
-        }
-        
-        const currentTime = new Date().getTime();
-        const timeDiff = currentTime - lastTapTimeRef.current;
-        
-        // If this is the second tap within 500ms
-        if (timeDiff < 500) {
-          // Double tap detected
-          isDoubleTapRef.current = true;
-          tapCountRef.current = 0;
-          setDoubleTapPosition({ x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY });
-          setShowDoubleTapHeart(true);
-          
-          // Like the video if not already liked
-          if (!isLiked) {
-            setIsLiked(true);
-          }
-          
-          // Hide the heart animation after 1 second
-          setTimeout(() => {
-            setShowDoubleTapHeart(false);
-          }, 1000);
-          
-          // Cancel any pending pause timeout
-          if (pauseTimeoutRef.current) {
-            clearTimeout(pauseTimeoutRef.current);
-            pauseTimeoutRef.current = null;
-          }
-        } else {
-          // First tap - set up for potential double tap
-          isDoubleTapRef.current = false;
-          tapCountRef.current = 1;
-          lastTapTimeRef.current = currentTime;
-          
-          // Set a timeout to handle single tap (pause) if no second tap occurs
-          if (pauseTimeoutRef.current) {
-            clearTimeout(pauseTimeoutRef.current);
-          }
-          
-          pauseTimeoutRef.current = setTimeout(() => {
-            // If we're still at tap count 1 after the timeout and it wasn't a double tap
-            if (tapCountRef.current === 1 && !isDoubleTapRef.current) {
-              // Single tap - pause the video
-              const video = videoRef.current;
-              if (video && !video.paused) {
-                video.pause();
-                setIsPlaying(false);
-                isPausedRef.current = true;
-              }
-            }
-            tapCountRef.current = 0;
-          }, 500); // 500ms delay for single tap
-        }
-      }}
+      style={{ touchAction: 'none' }}
+      onClick={handleScreenTap}
     >
-      {/* Video Layer */}
-      <div 
-        className="absolute inset-0" 
-      >
-        <div
-          className="absolute inset-0"
-        >
+      {/* Video Layer - Lowest z-index */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0">
           <video
             ref={videoRef}
             src={video.videoFile}
             loop
             playsInline
             autoPlay
-            muted
             className="absolute inset-0 w-full h-full object-cover bg-black"
           />
         </div>
@@ -809,7 +671,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
         />
       </div>
       
-      {/* Double Tap Heart Animation */}
+      {/* Double Tap Heart Animation - Highest z-index */}
       {showDoubleTapHeart && (
         <div className="fixed inset-0 z-[9999] pointer-events-none">
           <div className="absolute" style={{ left: `${doubleTapPosition.x}px`, top: `${doubleTapPosition.y}px`, transform: 'translate(-50%, -50%)' }}>
@@ -825,65 +687,38 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
         </div>
       )}
       
-      {/* Video Info Overlay */}
-      <div className="absolute inset-0 z-20">
+      {/* Interactive Elements Layer - High z-index */}
+      <div className="absolute inset-0 z-50">
         {/* Play/Pause Button - Center */}
+        {showPlayPause && (
         <div 
           className="absolute inset-0 flex items-center justify-center"
-          onClick={(e) => {
-            const target = e.target as HTMLElement;
-            // Don't toggle video if clicking on interactive elements or their children
-            if (
-              target.closest('a') ||
-              target.closest('button') ||
-              target.closest('.interactive-element')
-            ) {
-              return;
-            }
-            togglePlay(e);
-          }}
-        >
-          {!isPlaying && (
+          >
             <div 
-              className="w-16 h-16 flex items-center justify-center rounded-full bg-black/40 text-white cursor-pointer"
-              onClick={(e) => {
-                e.stopPropagation();
-                const video = videoRef.current;
-                if (!video) return;
-
-                // Play the video immediately
-                const playPromise = video.play();
-                if (playPromise !== undefined) {
-                  playPromise
-                    .then(() => {
-                      setIsPlaying(true);
-                      isPausedRef.current = false;
-                      // Reset tap detection state when manually playing
-                      tapCountRef.current = 0;
-                      isDoubleTapRef.current = false;
-                    })
-                    .catch((error) => {
-                      console.error('Error playing video:', error);
-                      setIsPlaying(false);
-                    });
-                }
-              }}
+              className={`w-16 h-16 flex items-center justify-center rounded-full bg-black/40 text-white transition-all duration-500 ease-in-out transform ${
+                isPlayPauseFading ? 'opacity-0 scale-90' : 'opacity-100 scale-100'
+              }`}
             >
+              {isPlaying ? (
+                <Pause size={32} />
+              ) : (
               <Play size={32} />
-            </div>
           )}
         </div>
+          </div>
+        )}
 
         {/* Captions Section */}
-        <div className="absolute bottom-[112px] left-0 right-[10px] p-4 text-white">
-          <h2 className="text-xl font-bold mb-0 select-none mt-[15px] max-w-[75%]">{videoContent.title}</h2>
+        <div style={{ bottom: getResponsiveSize(110) }} className="absolute left-0 right-[10px] p-4 text-white">
+          <h2 style={{ fontSize: getResponsiveSize(20) }} className="font-bold mb-0 select-none mt-[2%] max-w-[75%]">{videoContent.title}</h2>
           <div className="relative">
             <div className={`overflow-hidden transition-all duration-500 ease-in-out ${
-              isCaptionsExpanded ? 'max-h-[500px] opacity-100 transform translate-y-0' : 'max-h-[3em] opacity-100 transform translate-y-0'
+              isCaptionsExpanded ? 'max-h-[500px]' : 'line-clamp-2'
             }`}>
-              <p className={`text-xs leading-relaxed select-none max-w-[85%] text-gray-300 ${!isCaptionsExpanded ? 'line-clamp-2' : ''}`}>
-                {videoContent.text}
-              </p>
+              <p style={{ 
+                fontSize: getResponsiveSize(12),
+                lineHeight: '1.5'
+              }} className="select-none max-w-[85%] text-gray-300">{videoContent.text}</p>
             </div>
             <div className="relative mt-1 bg-transparent">
               <button 
@@ -891,7 +726,8 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                   e.stopPropagation();
                   setIsCaptionsExpanded(!isCaptionsExpanded);
                 }}
-                className="text-[#29ABE2] text-xs font-medium hover:text-[#29ABE2]/80 transition-colors"
+                style={{ fontSize: getResponsiveSize(12) }}
+                className="text-[#29ABE2] font-medium hover:text-[#29ABE2]/80 transition-colors"
               >
                 {isCaptionsExpanded ? 'Show less' : 'Read more'}
               </button>
@@ -899,52 +735,58 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
           </div>
         </div>
 
-        <div className="absolute bottom-[70px] left-0 right-0 p-2.5 text-white">
+        {/* Creator Info and Article Button */}
+        <div style={{ bottom: getResponsiveSize(70) }} className="absolute left-0 right-0 p-2.5 text-white">
           <div className="flex items-center justify-between interactive-element">
             <div className="flex items-center gap-2">
               <Link
                 href={`/@${video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
-                className="hover:opacity-90 transition-opacity z-30"
+                className="hover:opacity-90 transition-opacity"
                 onClick={(e) => {
                   e.stopPropagation();
                   localStorage.setItem('lastVideoId', video.id);
                 }}
               >
-              <img
-                src={video.creator.avatar || '/default-avatar.png'}
-                alt={video.creator.name}
-                className="w-10 h-10 rounded-full border border-white/20"
-              />
+                <img
+                  src={video.creator.avatar || '/default-avatar.png'}
+                  alt={video.creator.name}
+                  style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}
+                  className="rounded-full border border-white/20"
+                />
               </Link>
               <Link
                 href={`/@${video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
-                className="hover:opacity-90 transition-opacity z-30 block"
+                className="hover:opacity-90 transition-opacity block"
                 onClick={(e) => {
                   e.stopPropagation();
                   localStorage.setItem('lastVideoId', video.id);
                 }}
               >
-              <div>
-                  <h3 className="font-semibold text-sm leading-tight hover:text-[#29ABE2] transition-colors flex items-center gap-1">
+                <div>
+                  <h3 style={{ fontSize: getResponsiveSize(14) }} className="font-semibold leading-tight hover:text-[#29ABE2] transition-colors flex items-center gap-1">
                     {video.creator.name}
                     <span className="text-[#29ABE2]">
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <svg style={{ width: getResponsiveSize(12), height: getResponsiveSize(12) }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </span>
                   </h3>
-                  <h4 className="text-white/70 text-[10px] leading-tight hover:text-[#29ABE2] transition-colors">@{video.creator.name.toLowerCase().replace(/\s+/g, '')}</h4>
-              </div>
+                  <h4 style={{ fontSize: getResponsiveSize(11) }} className="text-white/70 leading-tight hover:text-[#29ABE2] transition-colors">@{video.creator.name.toLowerCase().replace(/\s+/g, '')}</h4>
+                </div>
               </Link>
               <button 
                 onClick={toggleFollow}
-                className={`pointer-events-auto px-3 py-1 text-xs font-medium rounded-full hover:opacity-80 transition-all duration-300 flex items-center gap-1 relative ${getAnimationClasses()}`}
+                style={{ 
+                  padding: `${getResponsiveSize(4)} ${getResponsiveSize(10)}`,
+                  fontSize: getResponsiveSize(12)
+                }}
+                className={`font-medium rounded-full hover:opacity-80 transition-all duration-300 flex items-center gap-1 relative ${getAnimationClasses()}`}
               >
                 <div className="flex items-center gap-1">
                   {isFollowing ? (
                     <>
                       <span>Followed</span>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="transform transition-transform duration-300">
+                      <svg style={{ width: getResponsiveSize(12), height: getResponsiveSize(12) }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="transform transition-transform duration-300">
                         <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
                     </>
@@ -966,7 +808,11 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.preventDefault();
                 onArticleOpenChange(true);
               }}
-              className="pointer-events-auto px-3 py-1 bg-[#29ABE2] text-white text-xs font-medium rounded-full hover:bg-[#29ABE2]/80 transition-colors"
+              style={{ 
+                padding: `${getResponsiveSize(4)} ${getResponsiveSize(10)}`,
+                fontSize: getResponsiveSize(12)
+              }}
+              className="bg-[#29ABE2] text-white font-medium rounded-full hover:bg-[#29ABE2]/80 transition-colors"
             >
               Full Article
             </button>
@@ -974,7 +820,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
         </div>
 
         {/* Engagement Buttons */}
-        <div className="absolute right-4 top-[calc(50%+60px)] transform -translate-y-1/2 flex flex-col space-y-6 pointer-events-auto z-30">
+        <div style={{ gap: getResponsiveSize(16) }} className="absolute right-4 top-[calc(50%+60px)] transform -translate-y-1/2 flex flex-col">
           <div className="flex flex-col items-center">
             <button 
               onClick={(e) => {
@@ -982,13 +828,19 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.preventDefault();
                 setIsLiked(!isLiked);
               }}
-              className={`flex items-center justify-center w-12 h-12 rounded-full ${
+              style={{ width: getResponsiveSize(44), height: getResponsiveSize(44) }}
+              className={`flex items-center justify-center rounded-full ${
                 isLiked ? 'text-[#29ABE2]' : 'text-white'
               }`}
             >
-              {isLiked ? <Heart className="text-[#29ABE2] fill-[#29ABE2] scale-125 transform transition-transform duration-300" size={28} /> : <Heart className="text-white fill-white transform transition-transform duration-300" size={28} />}
+              <div style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}>
+                {isLiked ? 
+                  <Heart className="text-[#29ABE2] fill-[#29ABE2] scale-125 transform transition-transform duration-300 w-full h-full" /> : 
+                  <Heart className="text-white fill-white transform transition-transform duration-300 w-full h-full" />
+                }
+              </div>
             </button>
-            <span className="text-white text-xs mt-1 font-medium">{isLiked ? video.likes + 1 : video.likes}</span>
+            <span style={{ fontSize: getResponsiveSize(12) }} className="text-white mt-1 font-medium">{isLiked ? video.likes + 1 : video.likes}</span>
           </div>
           <div className="flex flex-col items-center">
             <button 
@@ -997,17 +849,20 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.preventDefault();
                 onCommentsOpenChange(!isCommentsOpen);
               }}
-              className="w-12 h-12 flex items-center justify-center rounded-full text-white hover:opacity-80 transition-opacity"
+              style={{ width: getResponsiveSize(44), height: getResponsiveSize(44) }}
+              className="flex items-center justify-center rounded-full text-white hover:opacity-80 transition-opacity"
             >
-              <Image 
-                src="/assets/Vector-12.png"
-                alt="Comments"
-                width={28}
-                height={28}
-                className="transform transition-transform duration-300"
-              />
+              <div style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}>
+                <Image 
+                  src="/assets/Vector-12.png"
+                  alt="Comments"
+                  width={32}
+                  height={32}
+                  className="w-full h-full transform transition-transform duration-300"
+                />
+              </div>
             </button>
-            <span className="text-white text-xs mt-1 font-medium">{video.comments}</span>
+            <span style={{ fontSize: getResponsiveSize(12) }} className="text-white mt-1 font-medium">{video.comments}</span>
           </div>
           <div className="flex flex-col items-center">
             <button 
@@ -1015,11 +870,14 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.stopPropagation();
                 e.preventDefault();
               }}
-              className="w-12 h-12 flex items-center justify-center rounded-full text-white hover:opacity-80 transition-opacity"
+              style={{ width: getResponsiveSize(44), height: getResponsiveSize(44) }}
+              className="flex items-center justify-center rounded-full text-white hover:opacity-80 transition-opacity"
             >
-              <Share2 size={28} />
+              <div style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}>
+                <Share2 className="w-full h-full" />
+              </div>
             </button>
-            <span className="text-white text-xs mt-1 font-medium">Share</span>
+            <span style={{ fontSize: getResponsiveSize(12) }} className="text-white mt-1 font-medium">Share</span>
           </div>
         </div>
       </div>
@@ -1059,6 +917,27 @@ export default function VideoFeed() {
   // Determine current category based on pathname
   const currentCategory = pathname === '/' || pathname === '/foryou' ? 'For You' : 
     pathname.slice(1).charAt(0).toUpperCase() + pathname.slice(2);
+
+  // Add this effect to pause all videos when component mounts
+  useEffect(() => {
+    // Pause all videos when component mounts
+    const pauseAllVideos = () => {
+      const allVideos = document.querySelectorAll('video');
+      allVideos.forEach(video => {
+        video.pause();
+      });
+      
+      // Clear the currently playing video reference
+      currentlyPlayingVideoRef.current = null;
+    };
+    
+    pauseAllVideos();
+    
+    // Also pause all videos when videos array changes
+    return () => {
+      pauseAllVideos();
+    };
+  }, [videos]);
 
   useEffect(() => {
     // Instead of fetching from server, use sample videos
@@ -1227,11 +1106,25 @@ export default function VideoFeed() {
     if (newIndex !== activeVideoIndex) {
       setActiveVideoIndex(newIndex);
       
-      // Force autoplay for the newly active video
+      // Pause all videos first
+      const allVideos = document.querySelectorAll('video');
+      allVideos.forEach(video => {
+        video.pause();
+      });
+      
+      // Clear the currently playing video reference
+      currentlyPlayingVideoRef.current = null;
+      
+      // Force autoplay for the newly active video and reset to beginning
       setTimeout(() => {
         const videoElements = document.querySelectorAll('video');
         if (videoElements[newIndex]) {
           const videoElement = videoElements[newIndex] as HTMLVideoElement;
+          videoElement.currentTime = 0; // Reset to beginning
+          
+          // Set this as the currently playing video
+          currentlyPlayingVideoRef.current = videoElement;
+          
           if (videoElement.paused) {
             const playPromise = videoElement.play();
             if (playPromise !== undefined) {
@@ -1287,6 +1180,7 @@ export default function VideoFeed() {
     setTouchStart(e.touches[0].clientX);
     touchStartY.current = e.touches[0].clientY;
     setIsDragging(true);
+    setIsScrolling(false); // Reset scrolling state on new touch
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
@@ -1295,13 +1189,14 @@ export default function VideoFeed() {
     const currentX = e.touches[0].clientX;
     const currentY = e.touches[0].clientY;
     
-    // Calculate vertical movement
+    // Calculate vertical and horizontal movement
     const verticalMovement = Math.abs(currentY - (touchStartY.current || 0));
     const horizontalMovement = Math.abs(currentX - (touchStart || 0));
     
     // If vertical movement is greater than horizontal, consider it a scroll
-    if (verticalMovement > horizontalMovement) {
+    if (verticalMovement > horizontalMovement && !isScrolling) {
       setIsScrolling(true);
+      setIsDragging(false);
       return;
     }
     
@@ -1316,9 +1211,51 @@ export default function VideoFeed() {
       setDragOffset(0);
       setTouchStart(null);
       touchStartY.current = null;
-    }, 500); // Reset after 500ms of holding
+    }, 300); // Reduced timeout for better responsiveness
     
-    setDragOffset(currentX - (touchStart || 0));
+    // Calculate and set drag offset with a maximum limit
+    const maxOffset = window.innerWidth * 0.3; // Limit drag to 30% of screen width
+    const newOffset = currentX - (touchStart || 0);
+    setDragOffset(Math.max(-maxOffset, Math.min(maxOffset, newOffset)));
+  };
+
+  const handleTouchEnd = () => {
+    if (!isDragging || hasOpenComments || hasOpenArticle || isScrolling) {
+      // Reset states if conditions aren't met
+      setIsDragging(false);
+      setDragOffset(0);
+      setTouchStart(null);
+      touchStartY.current = null;
+      return;
+    }
+
+    // Clear the drag timeout
+    if (dragTimeout.current) {
+      clearTimeout(dragTimeout.current);
+      dragTimeout.current = null;
+    }
+
+    const threshold = 50;
+    const currentIndex = categories.indexOf(currentCategory);
+    let newIndex = currentIndex;
+
+    if (Math.abs(dragOffset) > threshold) {
+      if (dragOffset > 0 && currentIndex > 0) {
+        newIndex = currentIndex - 1;
+      } else if (dragOffset < 0 && currentIndex < categories.length - 1) {
+        newIndex = currentIndex + 1;
+      }
+    }
+
+    handleCategoryChange(newIndex);
+
+    // Reset states with a small delay to allow for smooth transition
+    setTimeout(() => {
+      setIsDragging(false);
+      setDragOffset(0);
+      setTouchStart(null);
+      touchStartY.current = null;
+    }, 50);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -1327,6 +1264,7 @@ export default function VideoFeed() {
     setTouchStart(e.clientX);
     touchStartY.current = e.clientY;
     setIsDragging(true);
+    setIsScrolling(false); // Reset scrolling state on new mouse down
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -1335,13 +1273,14 @@ export default function VideoFeed() {
     const currentX = e.clientX;
     const currentY = e.clientY;
     
-    // Calculate vertical movement
+    // Calculate vertical and horizontal movement
     const verticalMovement = Math.abs(currentY - (touchStartY.current || 0));
     const horizontalMovement = Math.abs(currentX - (touchStart || 0));
     
     // If vertical movement is greater than horizontal, consider it a scroll
-    if (verticalMovement > horizontalMovement) {
+    if (verticalMovement > horizontalMovement && !isScrolling) {
       setIsScrolling(true);
+      setIsDragging(false);
       return;
     }
 
@@ -1356,43 +1295,23 @@ export default function VideoFeed() {
       setDragOffset(0);
       setTouchStart(null);
       touchStartY.current = null;
-    }, 500); // Reset after 500ms of holding
+    }, 300); // Reduced timeout for better responsiveness
     
-    setDragOffset(currentX - (touchStart || 0));
-  };
-
-  const handleTouchEnd = () => {
-    if (!isDragging || hasOpenComments || hasOpenArticle || isScrolling) return;
-
-    // Clear the drag timeout
-    if (dragTimeout.current) {
-      clearTimeout(dragTimeout.current);
-      dragTimeout.current = null;
-    }
-
-    const threshold = 50;
-    const currentIndex = categories.indexOf(currentCategory);
-    let newIndex = currentIndex;
-
-    if (Math.abs(dragOffset) > threshold) {
-      if (dragOffset > 0 && currentIndex > 0) {
-        newIndex = currentIndex - 1;
-      } else if (dragOffset < 0 && currentIndex < categories.length - 1) {
-        newIndex = currentIndex + 1;
-      }
-    }
-
-    handleCategoryChange(newIndex);
-
-    // Reset states
-    setIsDragging(false);
-    setDragOffset(0);
-    setTouchStart(null);
-    touchStartY.current = null;
+    // Calculate and set drag offset with a maximum limit
+    const maxOffset = window.innerWidth * 0.3; // Limit drag to 30% of screen width
+    const newOffset = currentX - (touchStart || 0);
+    setDragOffset(Math.max(-maxOffset, Math.min(maxOffset, newOffset)));
   };
 
   const handleMouseUp = () => {
-    if (!isDragging || hasOpenComments || hasOpenArticle || isScrolling) return;
+    if (!isDragging || hasOpenComments || hasOpenArticle || isScrolling) {
+      // Reset states if conditions aren't met
+    setIsDragging(false);
+    setDragOffset(0);
+    setTouchStart(null);
+    touchStartY.current = null;
+      return;
+    }
 
     // Clear the drag timeout
     if (dragTimeout.current) {
@@ -1414,11 +1333,13 @@ export default function VideoFeed() {
 
     handleCategoryChange(newIndex);
 
-    // Reset states
+    // Reset states with a small delay to allow for smooth transition
+    setTimeout(() => {
     setIsDragging(false);
     setDragOffset(0);
     setTouchStart(null);
     touchStartY.current = null;
+    }, 50);
   };
 
   // Cleanup timeouts on unmount
@@ -1502,9 +1423,10 @@ export default function VideoFeed() {
         onScroll={handleScroll}
         style={{
           transform: isDragging ? `translateX(${dragOffset}px)` : 'none',
-          transition: isDragging ? 'none' : 'transform 0.3s ease-out',
+          transition: isDragging ? 'none' : 'transform 0.2s ease-out',
           cursor: isDragging ? 'grabbing' : 'default',
-          pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto'
+          pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto',
+          touchAction: isDragging ? 'none' : 'pan-y'
         }}
       >
         {videos.length === 0 ? (

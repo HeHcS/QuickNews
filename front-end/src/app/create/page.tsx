@@ -7,7 +7,6 @@ import BottomNav from '@/components/ui/BottomNav';
 
 export default function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
-  const [isCreator, setIsCreator] = useState(false);
   const router = useRouter();
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -46,23 +45,6 @@ export default function AuthPage() {
               }`}
             >
               Register
-            </button>
-          </div>
-
-          {/* Creator Toggle */}
-          <div className="flex items-center justify-center space-x-2 mb-8">
-            <span className="text-white/70">Sign up as a creator</span>
-            <button
-              onClick={() => setIsCreator(!isCreator)}
-              className={`w-12 h-6 rounded-full transition-colors ${
-                isCreator ? 'bg-blue-500' : 'bg-white/10'
-              }`}
-            >
-              <div
-                className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
-                  isCreator ? 'translate-x-7' : 'translate-x-1'
-                }`}
-              />
             </button>
           </div>
 
