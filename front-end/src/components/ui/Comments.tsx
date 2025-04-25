@@ -1,4 +1,13 @@
 import React, { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+
+// Import getResponsiveSize function
+const getResponsiveSize = (baseSize: number): string => {
+  // Convert base size to vh units (700px = 100vh reference)
+  const vhSize = (baseSize / 700) * 100;
+  // Only use vh units for responsive scaling, with a minimum size to prevent text from becoming too small
+  return `max(${baseSize * 0.5}px, ${vhSize}vh)`;
+};
 
 interface Comment {
   id: string;
@@ -189,7 +198,8 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
       ] 
     : commentsWithReplies;
 
-  return (
+  // Create portal content
+  const commentsContent = (
     <div 
       className={`fixed inset-0 z-[9999] flex items-end justify-center transition-opacity duration-300 ${
         isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
@@ -204,7 +214,7 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
           isOpen ? 'translate-y-0' : 'translate-y-full'
         }`}
         style={{ 
-          width: 'calc(55.6vh * 9/16 * 1.8)', // 80% wider, but based on 55.6vh height
+          width: 'calc(55.6vh * 9/16 * 1.8)',
           maxWidth: '100%'
         }}
         onClick={(e) => e.stopPropagation()}
@@ -235,27 +245,33 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
               <img 
                 src={comment.user.avatar} 
                 alt={comment.user.name}
-                className="w-8 h-8 rounded-full"
+                className="rounded-full"
+                style={{ 
+                  width: getResponsiveSize(32), 
+                  height: getResponsiveSize(32) 
+                }}
               />
               <div className="flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold text-xs text-white">{comment.user.name}</span>
-                  <span className="text-white/50 text-[10px]">{comment.timestamp}</span>
+                  <span style={{ fontSize: getResponsiveSize(12) }} className="font-semibold text-white">{comment.user.name}</span>
+                  <span style={{ fontSize: getResponsiveSize(10) }} className="text-white/50">{comment.timestamp}</span>
                 </div>
-                <p className="text-xs mt-1 text-white">{comment.text}</p>
+                <p style={{ fontSize: getResponsiveSize(12) }} className="mt-1 text-white">{comment.text}</p>
                 <div className="flex items-center gap-3 mt-1">
                   <button 
                     onClick={() => handleCommentLike(comment.id)}
-                    className={`flex items-center gap-1 text-[10px] transition-colors ${
+                    className={`flex items-center gap-1 transition-colors ${
                       likedComments[comment.id] ? 'text-red-500' : 'text-white/70 hover:text-white'
                     }`}
+                    style={{ fontSize: getResponsiveSize(10) }}
                   >
                     <span>{likedComments[comment.id] ? '❤️' : '🤍'}</span>
                     <span>{commentLikes[comment.id] || comment.likes}</span>
                   </button>
                   <button 
                     onClick={() => handleReplyClick(comment.id)}
-                    className="text-white/70 hover:text-white text-[10px]"
+                    className="text-white/70 hover:text-white"
+                    style={{ fontSize: getResponsiveSize(10) }}
                   >
                     💬 Reply
                   </button>
@@ -272,11 +288,13 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
                           value={replyText[comment.id] || ''}
                           onChange={(e) => handleReplyChange(comment.id, e.target.value)}
                           placeholder="Write a reply..."
-                          className="flex-1 bg-white/10 rounded-full px-3 py-1.5 text-xs text-white placeholder-white/50 focus:outline-none"
+                          className="flex-1 bg-white/10 rounded-full px-3 py-1.5 text-white placeholder-white/50 focus:outline-none"
+                          style={{ fontSize: getResponsiveSize(12) }}
                         />
                         <button 
                           onClick={() => handleSubmitReply(comment.id)}
-                          className="px-3 py-1.5 bg-blue-500 text-white text-xs font-medium rounded-full hover:bg-blue-600 transition-colors"
+                          className="px-3 py-1.5 bg-blue-500 text-white font-medium rounded-full hover:bg-blue-600 transition-colors"
+                          style={{ fontSize: getResponsiveSize(12) }}
                         >
                           Reply
                         </button>
@@ -289,20 +307,25 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
                         <img 
                           src={reply.user.avatar} 
                           alt={reply.user.name}
-                          className="w-5 h-5 rounded-full"
+                          className="rounded-full"
+                          style={{ 
+                            width: getResponsiveSize(20), 
+                            height: getResponsiveSize(20) 
+                          }}
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
-                            <span className="font-medium text-[10px] text-white">{reply.user.name}</span>
-                            <span className="text-white/50 text-[9px]">{reply.timestamp}</span>
+                            <span style={{ fontSize: getResponsiveSize(10) }} className="font-medium text-white">{reply.user.name}</span>
+                            <span style={{ fontSize: getResponsiveSize(9) }} className="text-white/50">{reply.timestamp}</span>
                           </div>
-                          <p className="text-[10px] mt-0.5 text-white">{reply.text}</p>
+                          <p style={{ fontSize: getResponsiveSize(10) }} className="mt-0.5 text-white">{reply.text}</p>
                           <div className="flex items-center gap-3 mt-1">
                             <button 
                               onClick={() => handleReplyLike(reply.id)}
-                              className={`flex items-center gap-1 text-[10px] transition-colors ${
+                              className={`flex items-center gap-1 transition-colors ${
                                 likedReplies[reply.id] ? 'text-red-500' : 'text-white/70 hover:text-white'
                               }`}
+                              style={{ fontSize: getResponsiveSize(10) }}
                             >
                               <span>{likedReplies[reply.id] ? '❤️' : '🤍'}</span>
                               <span>{replyLikes[reply.id] || reply.likes}</span>
@@ -315,7 +338,8 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
                     {/* Show/Hide Replies Button */}
                     <button 
                       onClick={() => toggleReplies(comment.id)}
-                      className="text-blue-400 text-[10px] hover:text-blue-300 transition-colors"
+                      className="text-blue-400 hover:text-blue-300 transition-colors"
+                      style={{ fontSize: getResponsiveSize(10) }}
                     >
                       {expandedReplies[comment.id] ? 'Hide replies' : 'Show replies'}
                     </button>
@@ -332,9 +356,13 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
             <input 
               type="text" 
               placeholder="Add a comment..."
-              className="flex-1 bg-white/10 rounded-full px-4 py-2 text-xs text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 bg-white/10 rounded-full px-4 py-2 text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{ fontSize: getResponsiveSize(12) }}
             />
-            <button className="px-4 py-2 bg-blue-500 text-white text-xs font-medium rounded-full hover:bg-blue-600 transition-colors">
+            <button 
+              className="px-4 py-2 bg-blue-500 text-white font-medium rounded-full hover:bg-blue-600 transition-colors"
+              style={{ fontSize: getResponsiveSize(12) }}
+            >
               Post
             </button>
           </div>
@@ -342,4 +370,9 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
       </div>
     </div>
   );
+
+  // Use portal to render at root level
+  return typeof document !== 'undefined' 
+    ? createPortal(commentsContent, document.body)
+    : null;
 } 

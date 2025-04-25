@@ -3,7 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import BottomNav from '@/components/ui/BottomNav';
-import { Menu, Play, UserSquare, Bookmark, ArrowLeft, Heart, MessageCircle, Share2 } from 'lucide-react';
+import { Menu, Play, UserSquare, Bookmark, Heart, MessageCircle, Share2, ArrowLeft } from 'lucide-react';
 import Comments from '@/components/ui/Comments';
 import ArticlePopup from '@/components/ui/ArticlePopup';
 import VideoFeed2 from '@/components/ui/VideoFeed2';
@@ -259,7 +259,7 @@ export default function CreatorPage() {
     });
   };
 
-  const handleBackClick = () => {
+  const resetVideoState = () => {
     setSelectedVideo(null);
     setIsPlaying(false);
     setIsCaptionsExpanded(false);
@@ -307,16 +307,35 @@ export default function CreatorPage() {
     setIsArticleOpen(true);
   };
 
+  const handleBackToFeed = () => {
+    // Store the current video ID in localStorage before going back
+    if (selectedVideo) {
+      localStorage.setItem('lastVideoId', selectedVideo.id);
+    }
+    
+    // Get the lastVideoId from localStorage
+    const lastVideoId = localStorage.getItem('lastVideoId');
+    
+    // Navigate back to the main videofeed with the video ID as a query parameter
+    if (lastVideoId) {
+      router.push(`/foryou?v=${lastVideoId}`);
+    } else {
+      router.push('/foryou');
+    }
+  };
+
   const renderContent = () => {
     if (selectedVideo) {
       return (
-        <div className="absolute inset-0 bg-black z-10">
-          <VideoFeed2 
-            videos={[selectedVideo]} 
-            creatorHandle={typeof handle === 'string' ? handle : undefined} 
-            onClose={handleBackClick}
-          />
-        </div>
+        <>
+          <div className="absolute inset-0 bg-black z-10">
+            <VideoFeed2 
+              videos={[selectedVideo]} 
+              creatorHandle={typeof handle === 'string' ? handle : undefined} 
+              onClose={resetVideoState}
+            />
+          </div>
+        </>
       );
     }
     
@@ -361,46 +380,29 @@ export default function CreatorPage() {
     <div className="h-screen bg-black text-white overflow-y-auto">
       <style jsx global>{scrollbarHideStyles}</style>
       <div className="relative min-h-full pb-16">
-        {/* Back Button */}
-        <div className="absolute top-4 left-4 z-10">
-          <button 
-            onClick={() => {
-              const lastVideoId = localStorage.getItem('lastVideoId');
-              if (lastVideoId) {
-                localStorage.removeItem('lastVideoId');
-                router.push(`/foryou?v=${lastVideoId}`);
-              } else {
-                router.push('/foryou');
-              }
-            }}
-            style={{
-              width: getResponsiveSize(40),
-              height: getResponsiveSize(40),
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderRadius: '9999px',
-              backgroundColor: 'transparent',
-              color: 'white',
-              transition: 'background-color 0.2s'
-            }}
-            onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'rgba(0, 0, 0, 0.2)'}
-            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
-          >
-            <span style={{ fontSize: getResponsiveSize(20) }}>←</span>
-          </button>
-        </div>
-        
         {/* Profile Header */}
         <div className="relative">
           {/* Cover Image - Dark Blue Background */}
-          <div style={{ height: getResponsiveSize(192) }} className="bg-blue-900 rounded-b-3xl" />
+          <div style={{ height: getResponsiveSize(192) }} className="bg-blue-900 rounded-b-3xl relative z-0">
+            {/* Back Button in Blue Box */}
+            <button
+              onClick={handleBackToFeed}
+              className="absolute top-4 left-4 z-[5] bg-black/30 rounded-full p-2 hover:bg-black/50 transition-colors flex items-center justify-center"
+              style={{ 
+                width: getResponsiveSize(40), 
+                height: getResponsiveSize(40),
+                fontSize: getResponsiveSize(16)
+              }}
+            >
+              <ArrowLeft size={24} className="text-white" />
+            </button>
+          </div>
           
           {/* Profile Info */}
-          <div style={{ padding: getResponsiveSize(16) }} className="pb-4">
+          <div style={{ padding: getResponsiveSize(16) }} className="pb-4 relative z-10">
             <div className="flex flex-col items-center" style={{ marginTop: getResponsiveSize(-140) }}>
               {/* Profile Image */}
-              <div style={{ width: getResponsiveSize(100), height: getResponsiveSize(100) }} className="rounded-full overflow-hidden bg-gray-800">
+              <div style={{ width: getResponsiveSize(100), height: getResponsiveSize(100) }} className="rounded-full overflow-hidden bg-gray-800 relative z-20">
                 <img
                   src={userData.avatar}
                   alt={userData.name}

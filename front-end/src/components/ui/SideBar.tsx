@@ -18,28 +18,37 @@ interface SideBarProps {
 }
 
 export default function SideBar({ isOpen, onClose }: SideBarProps) {
-  const [isClosing, setIsClosing] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (isOpen) {
-      // Show the sidebar immediately
+      // First set visible to true to render the component
       setIsVisible(true);
-      // Reset closing state
-      setIsClosing(false);
-    } else {
-      // Start closing animation
-      setIsClosing(true);
+      
       // Clear any existing timeout
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
+      
+      // Add a small delay before starting the animation
+      timeoutRef.current = setTimeout(() => {
+        setIsAnimating(true);
+      }, 10); // Small delay to ensure the component is rendered first
+    } else {
+      // Start closing animation
+      setIsAnimating(false);
+      
+      // Clear any existing timeout
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      
       // Set a timeout to hide the sidebar after animation completes
       timeoutRef.current = setTimeout(() => {
         setIsVisible(false);
-        setIsClosing(false);
-      }, 300);
+      }, 300); // Match this with CSS transition duration
     }
 
     // Cleanup function
@@ -51,32 +60,35 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
   }, [isOpen]);
 
   const handleClose = () => {
-    setIsClosing(true);
+    // Start closing animation
+    setIsAnimating(false);
+    
     // Clear any existing timeout
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
+    
     // Set a timeout to call onClose after animation completes
     timeoutRef.current = setTimeout(() => {
       onClose();
-    }, 300);
+    }, 300); // Match this with CSS transition duration
   };
 
   if (!isVisible) return null;
 
   return (
     <div className="absolute inset-0 z-[100] pointer-events-none">
-      {/* Backdrop - only active when sidebar is open */}
+      {/* Backdrop */}
       <div 
-        className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-all duration-300 ease-out pointer-events-auto
-          ${isOpen && !isClosing ? 'opacity-100' : 'opacity-0'}`}
+        className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ease-out pointer-events-auto
+          ${isAnimating ? 'opacity-100' : 'opacity-0'}`}
         onClick={handleClose}
       />
 
-      {/* Sidebar - only active when sidebar is open */}
+      {/* Sidebar */}
       <div 
-        className={`absolute top-0 left-0 h-full bg-black transform transition-all duration-300 ease-out
-          ${isOpen && !isClosing ? 'translate-x-0 pointer-events-auto' : '-translate-x-full pointer-events-none'}`}
+        className={`absolute top-0 left-0 h-full bg-black transition-transform duration-300 ease-out pointer-events-auto
+          ${isAnimating ? 'translate-x-0' : '-translate-x-full'}`}
         style={{ width: getResponsiveSize(280) }}
       >
         {/* Back Button */}

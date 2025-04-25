@@ -43,7 +43,7 @@ export default function BottomNav() {
       padding: `${getResponsiveSize(6)} ${getResponsiveSize(16)}`,
       gap: getResponsiveSize(20),
       width: getResponsiveSize(320)
-    }} className="absolute left-1/2 -translate-x-1/2 bg-[#1A1A1A] rounded-full shadow-lg">
+    }} className="fixed left-1/2 -translate-x-1/2 bg-[#1A1A1A] rounded-full shadow-lg z-[50]">
       <div className="flex items-center justify-between w-full">
         {navItems.map((item) => (
           <button
