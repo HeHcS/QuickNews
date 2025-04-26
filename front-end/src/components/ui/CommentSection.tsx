@@ -2,6 +2,14 @@
 
 import { useEffect, useRef } from 'react';
 
+// Import getResponsiveSize function
+const getResponsiveSize = (baseSize: number): string => {
+  // Convert base size to vh units (700px = 100vh reference)
+  const vhSize = (baseSize / 700) * 100;
+  // Only use vh units for responsive scaling, with a minimum size to prevent text from becoming too small
+  return `max(${baseSize * 0.5}px, ${vhSize}vh)`;
+};
+
 interface Comment {
   id: string;
   user: {
@@ -53,7 +61,7 @@ export default function CommentSection({ isOpen, onClose, comments }: CommentSec
 
         {/* Header */}
         <div className="flex items-center justify-between p-4">
-          <h2 className="text-white text-lg font-semibold">Comments</h2>
+          <h2 style={{ fontSize: getResponsiveSize(18) }} className="text-white font-semibold">Comments</h2>
           <button 
             onClick={onClose} 
             className="w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-white/70 hover:text-white"
@@ -69,20 +77,24 @@ export default function CommentSection({ isOpen, onClose, comments }: CommentSec
               <img
                 src={comment.user.avatar}
                 alt={comment.user.name}
-                className="w-8 h-8 rounded-full"
+                className="rounded-full"
+                style={{ 
+                  width: getResponsiveSize(32), 
+                  height: getResponsiveSize(32) 
+                }}
               />
               <div className="flex-1">
                 <div className="flex items-baseline space-x-2">
-                  <span className="text-white text-sm font-medium">{comment.user.name}</span>
-                  <span className="text-white/50 text-xs">{comment.timestamp}</span>
+                  <span style={{ fontSize: getResponsiveSize(14) }} className="text-white font-medium">{comment.user.name}</span>
+                  <span style={{ fontSize: getResponsiveSize(12) }} className="text-white/50">{comment.timestamp}</span>
                 </div>
-                <p className="text-white/90 text-sm mt-1">{comment.text}</p>
+                <p style={{ fontSize: getResponsiveSize(14) }} className="text-white/90 mt-1">{comment.text}</p>
                 <div className="flex items-center space-x-4 mt-2">
-                  <button className="text-white/50 hover:text-white text-xs flex items-center space-x-1">
+                  <button style={{ fontSize: getResponsiveSize(12) }} className="text-white/50 hover:text-white flex items-center space-x-1">
                     <span>❤️</span>
                     <span>{comment.likes}</span>
                   </button>
-                  <button className="text-white/50 hover:text-white text-xs">Reply</button>
+                  <button style={{ fontSize: getResponsiveSize(12) }} className="text-white/50 hover:text-white">Reply</button>
                 </div>
               </div>
             </div>
@@ -95,9 +107,13 @@ export default function CommentSection({ isOpen, onClose, comments }: CommentSec
             <input
               type="text"
               placeholder="Add a comment..."
-              className="flex-1 bg-white/10 text-white rounded-full px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 bg-white/10 text-white rounded-full px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              style={{ fontSize: getResponsiveSize(14) }}
             />
-            <button className="px-4 py-2 bg-blue-500 text-white font-medium text-sm rounded-full hover:bg-blue-600 transition-colors">
+            <button 
+              className="px-4 py-2 bg-blue-500 text-white font-medium rounded-full hover:bg-blue-600 transition-colors"
+              style={{ fontSize: getResponsiveSize(14) }}
+            >
               Post
             </button>
           </div>

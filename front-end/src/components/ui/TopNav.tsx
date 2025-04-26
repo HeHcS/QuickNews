@@ -2,6 +2,17 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import { Menu } from 'lucide-react';
+import SideBar from './SideBar';
+
+// Calculate responsive sizes based on viewport height (700px reference)
+const getResponsiveSize = (baseSize: number): string => {
+  // Convert base size to vh units (700px = 100vh reference)
+  const vhSize = (baseSize / 700) * 100;
+  // Only use vh units for responsive scaling, with a minimum size to prevent text from becoming too small
+  return `max(${baseSize * 0.5}px, ${vhSize}vh)`;
+};
 
 const categories = [
   { name: 'Breaking', path: '/breaking' },
@@ -9,13 +20,14 @@ const categories = [
   { name: 'For You', path: '/' },
   { name: 'Tech', path: '/tech' },
   { name: 'Business', path: '/business' },
-  { name: 'Subscribed', path: '/following' }
+  { name: 'Followed', path: '/following' }
 ];
 
 export default function TopNav() {
   const router = useRouter();
   const pathname = usePathname();
   const [activeCategory, setActiveCategory] = useState('For You');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     // Set active category based on current path
@@ -29,38 +41,58 @@ export default function TopNav() {
   };
 
   return (
-    <div className="absolute top-12 left-0 right-0 z-20">
-      {/* Navigation Container */}
-      <div className="relative w-full flex justify-center">
-        <div className="flex items-center justify-between w-full px-4">
-          {/* Menu Icon */}
-          <button className="w-8 h-8 flex items-center justify-center text-white/90 hover:text-white">
-            <span className="text-xl">☰</span>
-          </button>
+    <>
+      <div className="absolute top-12 left-0 right-0 z-20">
+        {/* Navigation Container */}
+        <div className="relative w-full flex justify-center">
+          <div className="flex items-center justify-between w-full px-3">
+            {/* Menu Icon */}
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}
+              className="flex items-center justify-center text-white hover:text-white/80 transition-colors select-none"
+            >
+              <Menu style={{ width: getResponsiveSize(24), height: getResponsiveSize(24) }} strokeWidth={2.5} className="transform transition-transform duration-300 hover:scale-110" />
+            </button>
 
-          {/* Categories */}
-          <div className="flex space-x-1 overflow-x-auto scrollbar-hide items-center max-w-[280px] bg-white/10 backdrop-blur-sm rounded-full px-2 py-1">
-            {categories.map((category) => (
-              <button
-                key={category.name}
-                onClick={() => handleCategoryClick(category)}
-                className={`px-1 py-0.5 text-[8px] font-medium rounded-full whitespace-nowrap transition-colors
-                  ${activeCategory === category.name
-                    ? 'bg-white text-black'
-                    : 'text-white/90 hover:text-white'
-                  }`}
-              >
-                {category.name}
-              </button>
-            ))}
+            {/* Categories */}
+            <div style={{ gap: getResponsiveSize(2), maxWidth: getResponsiveSize(360) }} className="flex overflow-x-auto scrollbar-hide items-center bg-black/30 backdrop-blur-sm rounded-full px-1.5 py-1 select-none">
+              {categories.map((category) => (
+                <button
+                  key={category.name}
+                  onClick={() => handleCategoryClick(category)}
+                  style={{ 
+                    padding: `${getResponsiveSize(4)} ${getResponsiveSize(6)}`,
+                    fontSize: getResponsiveSize(8)
+                  }}
+                  className={`font-medium rounded-full whitespace-nowrap transition-colors select-none
+                    ${activeCategory === category.name
+                      ? 'bg-[#29ABE2] text-white'
+                      : 'text-white/90 hover:text-white'
+                    }`}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+
+            {/* Log in Button */}
+            <button 
+              onClick={() => router.push('/create')}
+              style={{ 
+                padding: `${getResponsiveSize(4)} ${getResponsiveSize(10)}`,
+                fontSize: getResponsiveSize(10)
+              }}
+              className="bg-[#29ABE2] text-white font-medium rounded-full hover:bg-[#29ABE2]/80 transition-colors select-none"
+            >
+              Log in
+            </button>
           </div>
-
-          {/* Mail Icon */}
-          <button className="w-8 h-8 flex items-center justify-center text-white/90 hover:text-white">
-            <span className="text-xl">✉️</span>
-          </button>
         </div>
       </div>
-    </div>
+
+      {/* Sidebar */}
+      <SideBar isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
+    </>
   );
 } 

@@ -7,7 +7,6 @@ import BottomNav from './BottomNav';
 import Comments from './Comments';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import ArticlePopup from './ArticlePopup';
-import { APP_CATEGORIES } from '../../config/categories';
 import Link from 'next/link';
 import { Heart, Share2, Play, Pause, Volume2, VolumeX, ChevronDown, ChevronUp, MessageCircle, NewspaperIcon, XIcon, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
@@ -16,25 +15,25 @@ import Image from 'next/image';
 const doubleTapHeartStyle = `
   @keyframes double-tap-heart {
     0% {
-      transform: scale(0);
+      transform: scale(0) translateY(0);
       opacity: 0;
     }
     15% {
-      transform: scale(1.2);
+      transform: scale(1.2) translateY(0);
       opacity: 1;
     }
     30% {
-      transform: scale(1);
+      transform: scale(1) translateY(0);
       opacity: 1;
     }
     100% {
-      transform: scale(1.5);
+      transform: scale(1.5) translateY(-50px);
       opacity: 0;
     }
   }
   
   .animate-double-tap-heart {
-    animation: double-tap-heart 1s cubic-bezier(0.17, 0.89, 0.32, 1.49) forwards;
+    animation: double-tap-heart 1.2s cubic-bezier(0.17, 0.89, 0.32, 1.49) forwards;
     animation-delay: var(--animation-delay, 0s);
   }
 `;
@@ -48,32 +47,27 @@ if (typeof document !== 'undefined') {
 
 interface Video {
   id: string;
-  videoFile: string;
+  videoFile: string;  // This will be the full URL from the database
   title: string;
-  description: string;
-  likes: number;
-  comments: number;
   creator: {
     name: string;
     avatar?: string;
   };
+  likes: number;
+  comments: number;
   headline?: {
     text: string;
     source: string;
     timestamp: string;
   };
-}
-
-interface Comment {
-  _id: string;
-  user: {
-    name: string;
-    profilePicture: string;
+  captions?: {
+    title: string;
+    text: string;
   };
-  text: string;
-  likes: number;
-  createdAt: string;
-  repliesCount: number;
+  article?: {
+    title: string;
+    content: string;
+  };
 }
 
 interface VideoPostProps {
@@ -85,10 +79,19 @@ interface VideoPostProps {
   onArticleOpenChange: (isOpen: boolean) => void;
 }
 
-interface VideoFeedProps {
-  page?: number;
-  limit?: number;
+interface VideoFeed2Props {
+  videos: Video[];
+  creatorHandle?: string;
+  onClose?: () => void;
 }
+
+// Helper function to calculate responsive sizes
+const getResponsiveSize = (baseSize: number): string => {
+  // Convert base size to vh units (700px = 100vh reference)
+  const vhSize = (baseSize / 700) * 100;
+  // Only use vh units for responsive scaling, with a minimum size to prevent text from becoming too small
+  return `max(${baseSize * 0.5}px, ${vhSize}vh)`;
+};
 
 const generateVideoContent = (videoFile: string | undefined) => {
   if (!videoFile) {
@@ -135,14 +138,6 @@ const clamp = (min: number, val: number, max: number): number => {
   return Math.min(Math.max(min, val), max);
 };
 
-// Calculate responsive sizes based on viewport height (700px reference)
-const getResponsiveSize = (baseSize: number): string => {
-  // Convert base size to vh units (700px = 100vh reference)
-  const vhSize = (baseSize / 700) * 100;
-  // Only use vh units for responsive scaling, with a minimum size to prevent text from becoming too small
-  return `max(${baseSize * 0.5}px, ${vhSize}vh)`;
-};
-
 // Add this at the top of the file, after imports
 const currentlyPlayingVideoRef = { current: null as HTMLVideoElement | null };
 
@@ -165,7 +160,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
   const { ref, inView } = useInView({
     threshold: 0.7,
   });
-
+  
   // Double tap to like states
   const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
   const [doubleTapPosition, setDoubleTapPosition] = useState({ x: 0, y: 0 });
@@ -198,6 +193,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     }
   }, [video.id, isActive]);
 
+  // Generate content based on video file
+  const videoContent = generateVideoContent(video?.videoFile);
+
   // Early return if video data is invalid
   if (!video || !video.videoFile) {
     return (
@@ -209,39 +207,6 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       </div>
     );
   }
-
-  // Handle video playback based on visibility
-  useEffect(() => {
-    if (!videoRef.current) return;
-    
-    const videoElement = videoRef.current;
-
-    if (isActive && inView) {
-      // If there's another video playing, pause it first
-      if (currentlyPlayingVideoRef.current && currentlyPlayingVideoRef.current !== videoElement) {
-        currentlyPlayingVideoRef.current.pause();
-      }
-      
-      // Set this as the currently playing video
-      currentlyPlayingVideoRef.current = videoElement;
-      
-      // Force autoplay when active and in view
-      const playPromise = videoElement.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => setIsPlaying(true))
-          .catch(() => setIsPlaying(false));
-      }
-    } else {
-      videoElement.pause();
-      setIsPlaying(false);
-      
-      // If this was the currently playing video, clear the reference
-      if (currentlyPlayingVideoRef.current === videoElement) {
-        currentlyPlayingVideoRef.current = null;
-      }
-    }
-  }, [isActive, inView]);
 
   // Force autoplay when component mounts
   useEffect(() => {
@@ -478,15 +443,21 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       : 'bg-[#29ABE2] text-white scale-100 rotate-0';
   };
 
-  // Cleanup timeouts on unmount
+  // Update isPlaying state based on video's actual playing state
   useEffect(() => {
+    if (!videoRef.current) return;
+    
+    const videoElement = videoRef.current;
+    
+    const handlePlay = () => setIsPlaying(true);
+    const handlePause = () => setIsPlaying(false);
+    
+    videoElement.addEventListener('play', handlePlay);
+    videoElement.addEventListener('pause', handlePause);
+    
     return () => {
-      if (playPauseTimeoutRef.current) {
-        clearTimeout(playPauseTimeoutRef.current);
-      }
-      if (fadeTimeoutRef.current) {
-        clearTimeout(fadeTimeoutRef.current);
-      }
+      videoElement.removeEventListener('play', handlePlay);
+      videoElement.removeEventListener('pause', handlePause);
     };
   }, []);
 
@@ -646,7 +617,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
           </div>
         </div>
       )}
-      
+
       {/* Interactive Elements Layer - High z-index */}
       <div className="absolute inset-0 z-50">
         {/* Play/Pause Button - Center */}
@@ -739,13 +710,12 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
           </div>
         </div>
 
-        {/* Creator Info and Article Button */}
         <div style={{ bottom: getResponsiveSize(70) }} className="absolute left-0 right-0 p-2.5 text-white">
           <div className="flex items-center justify-between interactive-element">
             <div className="flex items-center gap-2">
               <Link
                 href={`/@${video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
-                className="hover:opacity-90 transition-opacity"
+                className="hover:opacity-90 transition-opacity z-30"
                 onClick={(e) => {
                   e.stopPropagation();
                   localStorage.setItem('lastVideoId', video.id);
@@ -760,7 +730,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
               </Link>
               <Link
                 href={`/@${video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
-                className="hover:opacity-90 transition-opacity block"
+                className="hover:opacity-90 transition-opacity z-30 block"
                 onClick={(e) => {
                   e.stopPropagation();
                   localStorage.setItem('lastVideoId', video.id);
@@ -778,13 +748,13 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                   <h4 style={{ fontSize: getResponsiveSize(11) }} className="text-white/70 leading-tight hover:text-[#29ABE2] transition-colors select-none">@{video.creator.name.toLowerCase().replace(/\s+/g, '')}</h4>
                 </div>
               </Link>
-              <button 
+              <button
                 onClick={toggleFollow}
                 style={{ 
                   padding: `${getResponsiveSize(4)} ${getResponsiveSize(10)}`,
                   fontSize: getResponsiveSize(12)
                 }}
-                className={`font-medium rounded-full hover:opacity-80 transition-all duration-300 flex items-center gap-1 relative ${getAnimationClasses()}`}
+                className={`pointer-events-auto font-medium rounded-full hover:opacity-80 transition-all duration-300 flex items-center gap-1 relative ${getAnimationClasses()}`}
               >
                 <div className="flex items-center gap-1">
                   {isFollowing ? (
@@ -793,8 +763,8 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                       <svg style={{ width: getResponsiveSize(12), height: getResponsiveSize(12) }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="transform transition-transform duration-300">
                         <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
-                    </>
-                  ) : (
+                  </>
+                ) : (
                     'Follow'
                   )}
                 </div>
@@ -812,11 +782,11 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.preventDefault();
                 onArticleOpenChange(true);
               }}
-              style={{ 
+              style={{
                 padding: `${getResponsiveSize(4)} ${getResponsiveSize(10)}`,
                 fontSize: getResponsiveSize(12)
               }}
-              className="bg-[#29ABE2] text-white font-medium rounded-full hover:bg-[#29ABE2]/80 transition-colors"
+              className="pointer-events-auto bg-[#29ABE2] text-white font-medium rounded-full hover:bg-[#29ABE2]/80 transition-colors"
             >
               Full Article
             </button>
@@ -840,7 +810,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
         </div>
 
         {/* Engagement Buttons */}
-        <div style={{ gap: getResponsiveSize(16) }} className="absolute right-4 top-[calc(50%+60px)] transform -translate-y-1/2 flex flex-col">
+        <div style={{ gap: getResponsiveSize(16) }} className="absolute right-4 top-[calc(50%+60px)] transform -translate-y-1/2 flex flex-col pointer-events-auto z-30">
           <div className="flex flex-col items-center">
             <button 
               onClick={(e) => {
@@ -852,13 +822,13 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
               className={`flex items-center justify-center rounded-full ${
                 isLiked ? 'text-[#29ABE2]' : 'text-white'
               }`}
-            >
-              <div style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}>
-                {isLiked ? 
-                  <Heart className="text-[#29ABE2] fill-[#29ABE2] scale-125 transform transition-transform duration-300 w-full h-full" /> : 
-                  <Heart className="text-white fill-white transform transition-transform duration-300 w-full h-full" />
-                }
-              </div>
+                >
+                  <div style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}>
+                    {isLiked ? 
+                      <Heart className="text-[#29ABE2] fill-[#29ABE2] scale-125 transform transition-transform duration-300 w-full h-full" /> : 
+                      <Heart className="text-white fill-white transform transition-transform duration-300 w-full h-full" />
+                    }
+                  </div>
             </button>
             <span style={{ fontSize: getResponsiveSize(12) }} className="text-white mt-1 font-medium">{isLiked ? video.likes + 1 : video.likes}</span>
           </div>
@@ -871,8 +841,8 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
               }}
               style={{ width: getResponsiveSize(44), height: getResponsiveSize(44) }}
               className="flex items-center justify-center rounded-full text-white hover:opacity-80 transition-opacity"
-            >
-              <div style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}>
+                >
+                  <div style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}>
                 <Image 
                   src="/assets/Vector-12.png"
                   alt="Comments"
@@ -883,7 +853,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
               </div>
             </button>
             <span style={{ fontSize: getResponsiveSize(12) }} className="text-white mt-1 font-medium">{video.comments}</span>
-          </div>
+                  </div>
           <div className="flex flex-col items-center">
             <button 
               onClick={(e) => {
@@ -905,156 +875,14 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
   );
 }
 
-export default function VideoFeed() {
+export default function VideoFeed2({ videos: initialVideos, creatorHandle, onClose }: VideoFeed2Props) {
+  const [videos, setVideos] = useState(initialVideos);
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragOffset, setDragOffset] = useState(0);
-  const [hasOpenComments, setHasOpenComments] = useState(false);
-  const [hasOpenArticle, setHasOpenArticle] = useState(false);
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [videoComments, setVideoComments] = useState<{ [key: string]: Comment[] }>({});
-  const [isLoadingComments, setIsLoadingComments] = useState(false);
-  const [isScrolling, setIsScrolling] = useState(false);
-  const [lastScrollTop, setLastScrollTop] = useState(0);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isSeekbarDragging, setIsSeekbarDragging] = useState(false);
-    
-  const pathname = usePathname();
+  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
+  const [isArticleOpen, setIsArticleOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const feedRef = useRef<HTMLDivElement>(null);
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
-  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
-  const touchStartY = useRef<number | null>(null);
-  const dragTimeout = useRef<NodeJS.Timeout | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const seekbarRef = useRef<HTMLDivElement>(null);
-  
-  // Use category names from our configuration
-  const categories = APP_CATEGORIES.map(cat => cat.name);
-  
-  // Determine current category based on pathname
-  const currentCategory = pathname === '/' || pathname === '/foryou' ? 'For You' : 
-    pathname.slice(1).charAt(0).toUpperCase() + pathname.slice(2);
 
-  // Add function to fetch comments
-  const fetchComments = async (videoId: string) => {
-    try {
-      setIsLoadingComments(true);
-      const response = await axios.get('http://localhost:5000/api/engagement/comments', {
-        params: {
-          contentId: videoId,
-          contentType: 'Video',
-          limit: 10
-        }
-      });
-
-      if (response.data && response.data.comments) {
-        setVideoComments(prev => ({
-          ...prev,
-          [videoId]: response.data.comments.map((comment: any) => ({
-            _id: comment._id,
-            user: {
-              name: comment.user.name,
-              profilePicture: comment.user.profilePicture || '/default-avatar.png'
-            },
-            text: comment.text,
-            likes: comment.likes || 0,
-            createdAt: new Date(comment.createdAt).toLocaleString(),
-            repliesCount: comment.repliesCount || 0
-          }))
-        }));
-      }
-    } catch (err) {
-      console.error('Error fetching comments:', err);
-    } finally {
-      setIsLoadingComments(false);
-    }
-  };
-
-  // Add effect to fetch comments when a video becomes active
-  useEffect(() => {
-    if (videos[activeVideoIndex] && hasOpenComments) {
-      fetchComments(videos[activeVideoIndex].id);
-    }
-  }, [activeVideoIndex, hasOpenComments]);
-
-  useEffect(() => {
-    const fetchVideos = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        // Send category parameter if not "For You"
-        const params = currentCategory === 'For You' ? {} : { category: currentCategory };
-        
-        console.log('Fetching videos with params:', params);
-        console.log('Current category:', currentCategory);
-        
-        // Fetch videos from backend
-        const response = await axios.get('http://localhost:5000/api/videos/feed', {
-          params,
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          }
-        });
-
-        console.log('Raw video feed response:', response.data);
-
-        // Check if response has the videos array
-        if (response.data && Array.isArray(response.data.videos)) {
-          // Map the response to include full video URLs and format the data
-          const videosWithUrls = response.data.videos.map((video: any) => ({
-            id: video._id,
-            videoFile: `http://localhost:5000/api/videos/${video._id}/stream`,
-            title: video.title || 'Untitled Video',
-            description: video.description || 'No description available',
-            likes: video.likes || 0,
-            comments: video.comments || 0,
-            creator: {
-              name: video.creator?.name || 'Anonymous',
-              avatar: video.creator?.profilePicture
-            },
-            headline: video.headline
-          }));
-          setVideos(videosWithUrls);
-        } else {
-          throw new Error('Invalid response format from server');
-        }
-      } catch (err: any) {
-        let errorMessage = 'Failed to fetch videos';
-        
-        if (err.code === 'ECONNABORTED') {
-          errorMessage = 'Request timed out. Please check your connection.';
-        } else if (err.response) {
-          // Server responded with error
-          errorMessage = err.response.data?.message || `Server error: ${err.response.status}`;
-          console.log('Server error response:', err.response.data);
-        } else if (err.request) {
-          // Request made but no response
-          errorMessage = 'Could not connect to server. Please check if the server is running.';
-          console.log('No response received:', err.request);
-        } else {
-          // Other errors
-          errorMessage = err.message || 'An unexpected error occurred';
-          console.log('Other error:', err);
-        }
-        
-        setError(errorMessage);
-        console.error('Error fetching videos:', {
-          code: err.code,
-          status: err.response?.status,
-          message: errorMessage,
-          error: err
-        });
-      } finally {
-        setIsLoading(false);
-      }
   // Add this effect to pause all videos when component mounts
   useEffect(() => {
     // Pause all videos when component mounts
@@ -1076,167 +904,34 @@ export default function VideoFeed() {
     };
   }, [videos]);
 
+  // Add this effect to handle article data
   useEffect(() => {
-    // Instead of fetching from server, use sample videos
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      // Get videos for current category
-      const categoryVideos = sampleVideos[currentCategory] || [];
-      setVideos(categoryVideos);
-    } catch (err: any) {
-      setError('Failed to load videos');
-      console.error('Error loading videos:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentCategory]);
-
-  // Add debug log for videos state changes
-  useEffect(() => {
-    console.log('Videos state updated:', videos);
-  }, [videos]);
-
-  // Add debug log for loading state changes
-  useEffect(() => {
-    console.log('Loading state:', isLoading);
-  }, [isLoading]);
-
-  useEffect(() => {
-    const videoId = searchParams.get('v');
-    if (videoId) {
-      const videoIndex = videos.findIndex(v => v.id === videoId);
-      if (videoIndex !== -1) {
-        setCurrentVideoIndex(videoIndex);
-        const videoElement = document.getElementById(`video-${videoId}`);
-        if (videoElement) {
-          videoElement.scrollIntoView({ behavior: 'smooth' });
+    // If the active video has no article data, generate some sample data
+    if (videos[activeVideoIndex] && !videos[activeVideoIndex].article) {
+      const videoContent = generateVideoContent(videos[activeVideoIndex].videoFile);
+      
+      // Create a deep copy of the videos array
+      const updatedVideos = [...videos];
+      
+      // Add article data to the active video
+      updatedVideos[activeVideoIndex] = {
+        ...updatedVideos[activeVideoIndex],
+        article: {
+          title: videoContent.title,
+          content: videoContent.text + "\n\n" + 
+                  "This is a sample article generated for demonstration purposes. " +
+                  "In a real application, this would be fetched from a database or API."
         }
-      }
+      };
+      
+      // Update the videos array in state
+      setVideos(updatedVideos);
+      console.log("Generated article data for video:", updatedVideos[activeVideoIndex].id);
     }
-  }, [searchParams, videos]);
-
-  // Update video time and duration for the active video
-  useEffect(() => {
-    if (!videos[activeVideoIndex]) return;
-    
-    // Find the video element for the active video
-    const videoElement = document.querySelector(`#video-${videos[activeVideoIndex].id} video`) as HTMLVideoElement;
-    if (!videoElement) return;
-    
-    videoRef.current = videoElement;
-    
-    const handleTimeUpdate = () => {
-      setCurrentTime(videoElement.currentTime);
-    };
-    
-    const handleLoadedMetadata = () => {
-      setDuration(videoElement.duration);
-    };
-    
-    videoElement.addEventListener('timeupdate', handleTimeUpdate);
-    videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
-    
-    return () => {
-      videoElement.removeEventListener('timeupdate', handleTimeUpdate);
-      videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
-    };
   }, [activeVideoIndex, videos]);
 
-  // Handle seeking
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!videoRef.current) return;
-    
-    const videoElement = videoRef.current;
-    const seekBar = e.currentTarget;
-    const rect = seekBar.getBoundingClientRect();
-    const seekPosition = (e.clientX - rect.left) / rect.width;
-    
-    // Set the video time based on the seek position
-    videoElement.currentTime = seekPosition * videoElement.duration;
-  };
-
-  // Handle seekbar drag start
-  const handleSeekbarDragStart = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!videoRef.current || !seekbarRef.current) return;
-    
-    setIsSeekbarDragging(true);
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    dragStartX.current = clientX;
-    dragStartTime.current = videoRef.current.currentTime;
-    
-    e.stopPropagation(); // Prevent other event handlers from firing
-  };
-
-  // Handle seekbar drag
-  const handleSeekbarDrag = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isSeekbarDragging || !videoRef.current || !seekbarRef.current) return;
-    
-    const videoElement = videoRef.current;
-    const seekBar = seekbarRef.current;
-    const rect = seekBar.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    
-    // Calculate the drag distance and convert to time
-    const dragDistance = clientX - dragStartX.current;
-    const seekBarWidth = rect.width;
-    const timeChange = (dragDistance / seekBarWidth) * videoElement.duration;
-    
-    // Set the new time, ensuring it stays within bounds
-    const newTime = Math.max(0, Math.min(videoElement.duration, dragStartTime.current + timeChange));
-    videoElement.currentTime = newTime;
-    
-    e.stopPropagation(); // Prevent other event handlers from firing
-  };
-
-  // Handle seekbar drag end
-  const handleSeekbarDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
-    setIsSeekbarDragging(false);
-    e.stopPropagation(); // Prevent other event handlers from firing
-  };
-
-  // Add event listeners for seekbar dragging
-  useEffect(() => {
-    if (!seekbarRef.current) return;
-    
-    const seekbar = seekbarRef.current;
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDrag(e as unknown as React.MouseEvent);
-    };
-    
-    const handleMouseUp = (e: MouseEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDragEnd(e as unknown as React.MouseEvent);
-    };
-    
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDrag(e as unknown as React.TouchEvent);
-    };
-    
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDragEnd(e as unknown as React.TouchEvent);
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('touchmove', handleTouchMove);
-    document.addEventListener('touchend', handleTouchEnd);
-    
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [isSeekbarDragging]);
-
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (hasOpenComments || hasOpenArticle) return;
+    if (isCommentsOpen || isArticleOpen) return;
     
     const element = e.currentTarget;
     const newIndex = Math.round(element.scrollTop / element.clientHeight);
@@ -1273,327 +968,86 @@ export default function VideoFeed() {
         }
       }, 100); // Small delay to ensure the video is ready
     }
-
-    // Detect if we're actually scrolling vertically
-    const currentScrollTop = element.scrollTop;
-    const scrollDiff = Math.abs(currentScrollTop - lastScrollTop);
-    setLastScrollTop(currentScrollTop);
-
-    if (scrollDiff > 5) { // Threshold to determine if we're actually scrolling
-      setIsScrolling(true);
-      
-      // Clear existing timeout
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current);
-      }
-      
-      // Set new timeout to clear scrolling state
-      scrollTimeout.current = setTimeout(() => {
-        setIsScrolling(false);
-      }, 300); // Increased timeout for better user experience
-    }
   };
 
-  const handleCategoryChange = (newIndex: number) => {
-    if (hasOpenComments || hasOpenArticle) return; // Prevent category change if comments or article are open
-    
-    const currentIndex = categories.indexOf(currentCategory);
-    
-    if (newIndex !== currentIndex) {
-      const newCategory = categories[newIndex];
-      // Special handling for For You page
-      if (newCategory === 'For You') {
-        router.push('/foryou');
-      } else {
-        router.push(`/${newCategory.toLowerCase()}`);
-      }
+  // Handle back button click
+  const handleBackClick = () => {
+    if (onClose) {
+      // If we have an onClose handler, use it to close the popup
+      onClose();
+    } else if (creatorHandle) {
+      // Navigate back to the creator page
+      router.push(`/@${creatorHandle}`);
+    } else {
+      // Otherwise, use the default back behavior
+      router.back();
     }
   };
-
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (hasOpenComments || hasOpenArticle) return;
-    
-    // Store both X and Y coordinates
-    setTouchStart(e.touches[0].clientX);
-    touchStartY.current = e.touches[0].clientY;
-    setIsDragging(true);
-    setIsScrolling(false); // Reset scrolling state on new touch
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isDragging || hasOpenComments || hasOpenArticle) return;
-    
-    const currentX = e.touches[0].clientX;
-    const currentY = e.touches[0].clientY;
-    
-    // Calculate vertical and horizontal movement
-    const verticalMovement = Math.abs(currentY - (touchStartY.current || 0));
-    const horizontalMovement = Math.abs(currentX - (touchStart || 0));
-    
-    // If vertical movement is greater than horizontal, consider it a scroll
-    if (verticalMovement > horizontalMovement && !isScrolling) {
-      setIsScrolling(true);
-      setIsDragging(false);
-      return;
-    }
-    
-    // Clear any existing timeout
-    if (dragTimeout.current) {
-      clearTimeout(dragTimeout.current);
-    }
-
-    // Set a new timeout to reset the drag if held too long
-    dragTimeout.current = setTimeout(() => {
-      setIsDragging(false);
-      setDragOffset(0);
-      setTouchStart(null);
-      touchStartY.current = null;
-    }, 300); // Reduced timeout for better responsiveness
-    
-    // Calculate and set drag offset with a maximum limit
-    const maxOffset = window.innerWidth * 0.3; // Limit drag to 30% of screen width
-    const newOffset = currentX - (touchStart || 0);
-    setDragOffset(Math.max(-maxOffset, Math.min(maxOffset, newOffset)));
-  };
-
-  const handleTouchEnd = () => {
-    if (!isDragging || hasOpenComments || hasOpenArticle || isScrolling) {
-      // Reset states if conditions aren't met
-      setIsDragging(false);
-      setDragOffset(0);
-      setTouchStart(null);
-      touchStartY.current = null;
-      return;
-    }
-
-    // Clear the drag timeout
-    if (dragTimeout.current) {
-      clearTimeout(dragTimeout.current);
-      dragTimeout.current = null;
-    }
-
-    const threshold = 50;
-    const currentIndex = categories.indexOf(currentCategory);
-    let newIndex = currentIndex;
-
-    if (Math.abs(dragOffset) > threshold) {
-      if (dragOffset > 0 && currentIndex > 0) {
-        newIndex = currentIndex - 1;
-      } else if (dragOffset < 0 && currentIndex < categories.length - 1) {
-        newIndex = currentIndex + 1;
-      }
-    }
-
-    handleCategoryChange(newIndex);
-
-    // Reset states with a small delay to allow for smooth transition
-    setTimeout(() => {
-      setIsDragging(false);
-      setDragOffset(0);
-      setTouchStart(null);
-      touchStartY.current = null;
-    }, 50);
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (hasOpenComments || hasOpenArticle) return;
-    
-    setTouchStart(e.clientX);
-    touchStartY.current = e.clientY;
-    setIsDragging(true);
-    setIsScrolling(false); // Reset scrolling state on new mouse down
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || hasOpenComments || hasOpenArticle) return;
-    
-    const currentX = e.clientX;
-    const currentY = e.clientY;
-    
-    // Calculate vertical and horizontal movement
-    const verticalMovement = Math.abs(currentY - (touchStartY.current || 0));
-    const horizontalMovement = Math.abs(currentX - (touchStart || 0));
-    
-    // If vertical movement is greater than horizontal, consider it a scroll
-    if (verticalMovement > horizontalMovement && !isScrolling) {
-      setIsScrolling(true);
-      setIsDragging(false);
-      return;
-    }
-
-    // Clear any existing timeout
-    if (dragTimeout.current) {
-      clearTimeout(dragTimeout.current);
-    }
-
-    // Set a new timeout to reset the drag if held too long
-    dragTimeout.current = setTimeout(() => {
-      setIsDragging(false);
-      setDragOffset(0);
-      setTouchStart(null);
-      touchStartY.current = null;
-    }, 300); // Reduced timeout for better responsiveness
-    
-    // Calculate and set drag offset with a maximum limit
-    const maxOffset = window.innerWidth * 0.3; // Limit drag to 30% of screen width
-    const newOffset = currentX - (touchStart || 0);
-    setDragOffset(Math.max(-maxOffset, Math.min(maxOffset, newOffset)));
-  };
-
-  const handleMouseUp = () => {
-    if (!isDragging || hasOpenComments || hasOpenArticle || isScrolling) {
-      // Reset states if conditions aren't met
-    setIsDragging(false);
-    setDragOffset(0);
-    setTouchStart(null);
-    touchStartY.current = null;
-      return;
-    }
-
-    // Clear the drag timeout
-    if (dragTimeout.current) {
-      clearTimeout(dragTimeout.current);
-      dragTimeout.current = null;
-    }
-
-    const threshold = 50;
-    const currentIndex = categories.indexOf(currentCategory);
-    let newIndex = currentIndex;
-
-    if (Math.abs(dragOffset) > threshold) {
-      if (dragOffset > 0 && currentIndex > 0) {
-        newIndex = currentIndex - 1;
-      } else if (dragOffset < 0 && currentIndex < categories.length - 1) {
-        newIndex = currentIndex + 1;
-      }
-    }
-
-    handleCategoryChange(newIndex);
-
-    // Reset states with a small delay to allow for smooth transition
-    setTimeout(() => {
-    setIsDragging(false);
-    setDragOffset(0);
-    setTouchStart(null);
-    touchStartY.current = null;
-    }, 50);
-  };
-
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current);
-      }
-      if (dragTimeout.current) {
-        clearTimeout(dragTimeout.current);
-      }
-    };
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="relative h-full flex items-center justify-center bg-black">
-        <div className="text-white text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
-          <p>Loading videos...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="relative h-full flex items-center justify-center bg-black">
-        <div className="text-white text-center p-4">
-          <p className="text-red-500 mb-2">⚠️ Error loading videos</p>
-          <p className="text-sm opacity-80">{error}</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="mt-4 px-4 py-2 bg-[#29ABE2] rounded-full hover:bg-[#29ABE2]/80 transition-colors"
-          >
-            Try Again
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div 
-      className="relative h-full flex flex-col items-center"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      ref={containerRef}
+      className="relative h-full w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
+      onScroll={handleScroll}
     >
-      <TopNav />
+      {/* Back Button - Only visible when ArticlePopup is closed */}
+      {!isArticleOpen && (
+        <div className="absolute top-4 left-4 z-[100] transition-opacity duration-300">
+          <button
+            onClick={handleBackClick}
+            className="flex items-center gap-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all duration-300 group px-4 py-2"
+          >
+            <ArrowLeft size={24} className="text-white group-hover:scale-110 transition-transform" />
+            <span className="text-base font-medium">Back</span>
+          </button>
+        </div>
+      )}
       
-      {/* Video Feed */}
-      <div 
-        className="w-full h-[calc(100vh-120px)] mx-auto flex-1 overflow-y-scroll snap-y snap-mandatory scrollbar-hide relative"
-        onScroll={handleScroll}
-        style={{
-          transform: isDragging ? `translateX(${dragOffset}px)` : 'none',
-          transition: isDragging ? 'none' : 'transform 0.2s ease-out',
-          cursor: isDragging ? 'grabbing' : 'default',
-          pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto',
-          touchAction: isDragging ? 'none' : 'pan-y'
-        }}
-      >
-        {videos.length === 0 ? (
-          <div className="h-full flex items-center justify-center bg-black text-white text-center p-4">
-            <p>No videos available for this category</p>
+      {videos.length === 0 ? (
+        <div className="h-full flex items-center justify-center bg-black text-white text-center p-4">
+          <p>No videos available</p>
+        </div>
+      ) : (
+        videos.map((video, index) => (
+          <div
+            key={video.id}
+            className="relative w-full h-full snap-start"
+          >
+            <VideoPost
+              video={video}
+              isActive={index === activeVideoIndex}
+              isCommentsOpen={isCommentsOpen}
+              onCommentsOpenChange={setIsCommentsOpen}
+              isArticleOpen={isArticleOpen}
+              onArticleOpenChange={setIsArticleOpen}
+            />
           </div>
-        ) : (
-          videos.map((video, index) => (
-            <div
-              key={video.id}
-              id={`video-${video.id}`}
-              className={`relative w-full h-full snap-start ${
-                index === currentVideoIndex ? 'z-10' : 'z-0'
-              }`}
-            >
-              <VideoPost
-                video={video}
-                isActive={index === activeVideoIndex}
-                isCommentsOpen={hasOpenComments}
-                onCommentsOpenChange={setHasOpenComments}
-                isArticleOpen={hasOpenArticle}
-                onArticleOpenChange={setHasOpenArticle}
-              />
-            </div>
-          ))
-        )}
-      </div>
-
-      {/* Bottom Navigation */}
-      <div className="w-full mx-auto z-50" style={{ pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto' }}>
-        <BottomNav />
-      </div>
+        ))
+      )}
 
       {/* Comments Component */}
       {videos[activeVideoIndex] && (
         <Comments 
-          isOpen={hasOpenComments}
-          onClose={() => setHasOpenComments(false)}
-          comments={videoComments[videos[activeVideoIndex].id] || []}
-          isLoading={isLoadingComments}
+          isOpen={isCommentsOpen}
+          onClose={() => setIsCommentsOpen(false)}
+          comments={[]}
         />
       )}
 
       {/* Article Popup */}
-      {videos[activeVideoIndex] && (
+      {videos[activeVideoIndex] && videos[activeVideoIndex].article && (
         <ArticlePopup 
-          isOpen={hasOpenArticle}
-          onClose={() => setHasOpenArticle(false)}
-          title={generateVideoContent(videos[activeVideoIndex].videoFile).title}
-          content={generateVideoContent(videos[activeVideoIndex].videoFile).text}
+          isOpen={isArticleOpen}
+          onClose={() => setIsArticleOpen(false)}
+          title={videos[activeVideoIndex].article?.title || ''}
+          content={videos[activeVideoIndex].article?.content || ''}
         />
       )}
+
+      {/* Bottom Navigation */}
+      <div style={{ pointerEvents: isCommentsOpen || isArticleOpen ? 'none' : 'auto' }}>
+        <BottomNav />
+      </div>
     </div>
   );
 } 
