@@ -2,15 +2,16 @@ import express from 'express';
 import { 
   streamVideoById, 
   getVideoFeed, 
-  getVideoById, 
-  getVideosByCategory,
+  getVideoById,
+  getCategories,
   bookmarkVideo,
   removeBookmark,
   getUserBookmarks,
   getBookmarkCollections,
   uploadVideo,
   getAllVideos,
-  getVideo
+  getVideo,
+  getCreatorVideos
 } from '../controllers/videoController.js';
 import { protect } from '../middleware/authMiddleware.js';
 import upload, { handleVideoUploadErrors } from '../middleware/uploadMiddleware.js';
@@ -19,7 +20,8 @@ const router = express.Router();
 
 // Public routes
 router.get('/feed', getVideoFeed);
-router.get('/category/:id', getVideosByCategory);
+router.get('/categories', getCategories);
+router.get('/creator/:creatorId', getCreatorVideos);
 router.get('/:id', getVideo);
 router.get('/:id/stream', streamVideoById);
 router.get('/', getAllVideos);

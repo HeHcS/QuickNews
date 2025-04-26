@@ -1,5 +1,4 @@
 import Video from '../models/videoModel.js';
-import Category from '../models/categoryModel.js';
 import Bookmark from '../models/bookmarkModel.js';
 import mongoose from 'mongoose';
 import { streamVideo, getVideosDir } from '../utils/videoStream.js';
@@ -72,11 +71,8 @@ export const getVideoFeed = async (req, res) => {
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10)); // Between 1 and 50
     const skip = (page - 1) * limit;
     
-    // Validate category if provided
+    // Get category from query params
     const category = req.query.category;
-    if (category && !mongoose.Types.ObjectId.isValid(category)) {
-      return res.status(400).json({ message: 'Invalid category ID format' });
-    }
     
     const userId = req.user ? req.user._id : null;
     
@@ -93,17 +89,16 @@ export const getVideoFeed = async (req, res) => {
     const query = { isPublished: true };
     
     // Filter by category if specified
-    if (category) {
-      query.categories = mongoose.Types.ObjectId(category);
+    if (category && category !== 'For You') {
+      query.categories = category;
     }
     
-    // Find videos with populated creator and categories
+    // Find videos with populated creator
     let feedQuery = Video.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('creator', 'name profilePicture')
-      .populate('categories', 'name icon color');
+      .populate('creator', 'name profilePicture');
     
     // If user is authenticated, include information about likes and bookmarks
     if (userId) {
@@ -114,6 +109,59 @@ export const getVideoFeed = async (req, res) => {
           { $sort: { createdAt: -1 } },
           { $skip: skip },
           { $limit: limit },
+          // Lookup likes count
+          {
+            $lookup: {
+              from: 'likes',
+              let: { videoId: '$_id' },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ['$content', '$$videoId'] },
+                        { $eq: ['$contentType', 'Video'] }
+                      ]
+                    }
+                  }
+                }
+              ],
+              as: 'likesInfo'
+            }
+          },
+          // Add likes count field
+          {
+            $addFields: {
+              likes: { $size: '$likesInfo' }
+            }
+          },
+          // Lookup comments count
+          {
+            $lookup: {
+              from: 'comments',
+              let: { videoId: '$_id' },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ['$content', '$$videoId'] },
+                        { $eq: ['$contentType', 'Video'] },
+                        { $eq: ['$parentComment', null] }  // Only count top-level comments
+                      ]
+                    }
+                  }
+                }
+              ],
+              as: 'commentsInfo'
+            }
+          },
+          // Add comments count field
+          {
+            $addFields: {
+              comments: { $size: '$commentsInfo' }
+            }
+          },
           {
             $lookup: {
               from: 'users',
@@ -155,13 +203,41 @@ export const getVideoFeed = async (req, res) => {
               as: 'bookmarkInfo'
             }
           },
+          // Check if current user has liked the video
+          {
+            $lookup: {
+              from: 'likes',
+              let: { videoId: '$_id' },
+              pipeline: [
+                {
+                  $match: {
+                    $expr: {
+                      $and: [
+                        { $eq: ['$content', '$$videoId'] },
+                        { $eq: ['$contentType', 'Video'] },
+                        { $eq: ['$user', mongoose.Types.ObjectId(userId)] }
+                      ]
+                    }
+                  }
+                }
+              ],
+              as: 'userLikeInfo'
+            }
+          },
           {
             $addFields: {
               userBookmarked: { $gt: [{ $size: '$bookmarkInfo' }, 0] },
-              // Add more user-specific fields as needed
+              userLiked: { $gt: [{ $size: '$userLikeInfo' }, 0] }
             }
           },
-          { $project: { bookmarkInfo: 0 } }
+          { 
+            $project: { 
+              bookmarkInfo: 0,
+              likesInfo: 0,
+              userLikeInfo: 0,
+              commentsInfo: 0
+            } 
+          }
         ]);
         
         // Get total count for pagination
@@ -187,8 +263,95 @@ export const getVideoFeed = async (req, res) => {
       }
     }
     
-    // For anonymous users or if aggregation failed, use the simpler query
-    const videos = await feedQuery.exec();
+    // For anonymous users or if aggregation failed, use the simpler query with likes count
+    const videos = await Video.aggregate([
+      { $match: query },
+      { $sort: { createdAt: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      // Lookup likes count
+      {
+        $lookup: {
+          from: 'likes',
+          let: { videoId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$content', '$$videoId'] },
+                    { $eq: ['$contentType', 'Video'] }
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'likesInfo'
+        }
+      },
+      // Add likes count field
+      {
+        $addFields: {
+          likes: { $size: '$likesInfo' }
+        }
+      },
+      // Lookup comments count
+      {
+        $lookup: {
+          from: 'comments',
+          let: { videoId: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ['$content', '$$videoId'] },
+                    { $eq: ['$contentType', 'Video'] },
+                    { $eq: ['$parentComment', null] }  // Only count top-level comments
+                  ]
+                }
+              }
+            }
+          ],
+          as: 'commentsInfo'
+        }
+      },
+      // Add comments count field
+      {
+        $addFields: {
+          comments: { $size: '$commentsInfo' }
+        }
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'creator',
+          foreignField: '_id',
+          as: 'creator'
+        }
+      },
+      { 
+        $unwind: {
+          path: '$creator',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'categories',
+          foreignField: '_id',
+          as: 'categories'
+        }
+      },
+      { 
+        $project: { 
+          likesInfo: 0,
+          commentsInfo: 0
+        } 
+      }
+    ]);
+
     const total = await Video.countDocuments(query);
     
     const responseData = {
@@ -282,102 +445,12 @@ export const getVideoById = async (req, res) => {
  */
 export const getCategories = async (req, res) => {
   try {
-    // Create cache key
-    const cacheKey = `${CACHE_KEYS.CATEGORIES}all`;
-    
-    // Try to get from cache
-    const cachedData = await getCache(cacheKey);
-    if (cachedData) {
-      return res.json(cachedData);
-    }
-    
-    // Fetch all active categories
-    const categories = await Category.find({ isActive: true })
-      .sort({ sortOrder: 1, name: 1 });
-    
-    // Cache the result (longer TTL for categories)
-    await setCache(cacheKey, categories, 86400); // 24 hours
-    
-    res.json(categories);
+    // Import categories from frontend config to ensure consistency
+    const { APP_CATEGORIES } = await import('../../front-end/src/config/categories.js');
+    res.json(APP_CATEGORIES);
   } catch (error) {
     console.error('Error fetching categories:', error);
     res.status(500).json({ message: 'Error fetching categories', error: error.message });
-  }
-};
-
-/**
- * Get videos by category
- * @route GET /api/videos/category/:id
- * @access Public
- */
-export const getVideosByCategory = async (req, res) => {
-  try {
-    const categoryId = req.params.id;
-    
-    // Validate if ID is a valid ObjectId
-    if (!mongoose.Types.ObjectId.isValid(categoryId)) {
-      return res.status(400).json({ message: 'Invalid category ID format' });
-    }
-    
-    // Parse and validate pagination parameters
-    const page = Math.max(1, parseInt(req.query.page) || 1); // Ensure page is at least 1
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 10)); // Between 1 and 50
-    const skip = (page - 1) * limit;
-    
-    const userId = req.user ? req.user._id : null;
-    
-    // Create cache key
-    const cacheKey = `${CACHE_KEYS.CATEGORIES}${categoryId}:${page}:${limit}:${userId || 'anon'}`;
-    
-    // Try to get from cache
-    const cachedData = await getCache(cacheKey);
-    if (cachedData) {
-      return res.json(cachedData);
-    }
-    
-    // Find the category
-    const category = await Category.findById(categoryId);
-    if (!category) {
-      return res.status(404).json({ message: 'Category not found' });
-    }
-    
-    if (!category.isActive) {
-      return res.status(404).json({ message: 'Category is not active' });
-    }
-    
-    // Find videos in this category
-    const query = { 
-      categories: categoryId,
-      isPublished: true 
-    };
-    
-    const videos = await Video.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .populate('creator', 'name profilePicture')
-      .populate('categories', 'name icon color');
-    
-    const total = await Video.countDocuments(query);
-    
-    const responseData = {
-      category,
-      videos,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit)
-      }
-    };
-    
-    // Cache the result
-    await setCache(cacheKey, responseData);
-    
-    res.json(responseData);
-  } catch (error) {
-    console.error('Error fetching videos by category:', error);
-    res.status(500).json({ message: 'Error fetching videos by category', error: error.message });
   }
 };
 
@@ -645,4 +718,195 @@ export const getVideo = catchAsync(async (req, res, next) => {
       video
     }
   });
+});
+
+/**
+ * Get videos from a specific creator with pagination
+ * @route GET /api/videos/creator/:creatorId
+ * @access Public
+ */
+export const getCreatorVideos = catchAsync(async (req, res) => {
+  const { creatorId } = req.params;
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 12));
+  const skip = (page - 1) * limit;
+
+  // Validate creator ID
+  if (!mongoose.Types.ObjectId.isValid(creatorId)) {
+    throw new AppError('Invalid creator ID format', 400);
+  }
+
+  // Get user ID if authenticated
+  const userId = req.user ? req.user._id : null;
+
+  // Create cache key
+  const cacheKey = `${CACHE_KEYS.FEED}creator:${creatorId}:${page}:${limit}:${userId || 'anon'}`;
+
+  // Try to get cached data
+  const cachedData = await getCache(cacheKey);
+  if (cachedData) {
+    return res.json(cachedData);
+  }
+
+  // Build aggregation pipeline
+  const pipeline = [
+    { 
+      $match: { 
+        creator: new mongoose.Types.ObjectId(creatorId),
+        isPublished: true 
+      } 
+    },
+    { $sort: { createdAt: -1 } },
+    { $skip: skip },
+    { $limit: limit },
+    // Lookup creator details
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'creator',
+        foreignField: '_id',
+        as: 'creator'
+      }
+    },
+    { 
+      $unwind: {
+        path: '$creator',
+        preserveNullAndEmptyArrays: true
+      }
+    },
+    // Get likes count
+    {
+      $lookup: {
+        from: 'likes',
+        let: { videoId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$content', '$$videoId'] },
+                  { $eq: ['$contentType', 'Video'] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'likesInfo'
+      }
+    },
+    // Get comments count
+    {
+      $lookup: {
+        from: 'comments',
+        let: { videoId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$content', '$$videoId'] },
+                  { $eq: ['$contentType', 'Video'] },
+                  { $eq: ['$parentComment', null] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'commentsInfo'
+      }
+    }
+  ];
+
+  // Add user-specific lookups if user is authenticated
+  if (userId) {
+    // Check if user has liked the video
+    pipeline.push({
+      $lookup: {
+        from: 'likes',
+        let: { videoId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$content', '$$videoId'] },
+                  { $eq: ['$contentType', 'Video'] },
+                  { $eq: ['$user', new mongoose.Types.ObjectId(userId)] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'userLikeInfo'
+      }
+    });
+
+    // Check if user has bookmarked the video
+    pipeline.push({
+      $lookup: {
+        from: 'bookmarks',
+        let: { videoId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$video', '$$videoId'] },
+                  { $eq: ['$user', new mongoose.Types.ObjectId(userId)] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'bookmarkInfo'
+      }
+    });
+  }
+
+  // Add computed fields
+  pipeline.push({
+    $addFields: {
+      likes: { $size: '$likesInfo' },
+      comments: { $size: '$commentsInfo' },
+      userLiked: userId ? { $gt: [{ $size: '$userLikeInfo' }, 0] } : false,
+      userBookmarked: userId ? { $gt: [{ $size: '$bookmarkInfo' }, 0] } : false
+    }
+  });
+
+  // Clean up temporary fields
+  pipeline.push({
+    $project: {
+      likesInfo: 0,
+      commentsInfo: 0,
+      userLikeInfo: 0,
+      bookmarkInfo: 0,
+      'creator.password': 0,
+      'creator.email': 0
+    }
+  });
+
+  // Get total count for pagination
+  const totalCount = await Video.countDocuments({ 
+    creator: new mongoose.Types.ObjectId(creatorId),
+    isPublished: true 
+  });
+
+  // Execute aggregation
+  const videos = await Video.aggregate(pipeline);
+
+  const response = {
+    videos,
+    pagination: {
+      page,
+      limit,
+      totalVideos: totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      hasMore: page * limit < totalCount
+    }
+  };
+
+  // Cache the response
+  await setCache(cacheKey, response, 300); // Cache for 5 minutes
+
+  res.json(response);
 }); 

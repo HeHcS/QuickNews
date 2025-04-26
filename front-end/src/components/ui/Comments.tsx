@@ -10,8 +10,11 @@ const getResponsiveSize = (baseSize: number): string => {
 };
 
 interface Comment {
-  id: string;
-  user: { name: string; avatar: string };
+  _id: string;
+  user: {
+    name: string;
+    profilePicture: string;
+  };
   text: string;
   likes: number;
   timestamp: string;
@@ -30,9 +33,10 @@ interface CommentsProps {
   isOpen: boolean;
   onClose: () => void;
   comments: Comment[];
+  isLoading?: boolean;
 }
 
-export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
+export default function Comments({ isOpen, onClose, comments, isLoading = false }: CommentsProps) {
   const [expandedReplies, setExpandedReplies] = useState<Record<string, boolean>>({});
   const [replyText, setReplyText] = useState<Record<string, string>>({});
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null);
@@ -76,6 +80,21 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
   const handlePanelClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
+
+  if (isLoading) {
+    return (
+      <div className={`fixed inset-0 z-[9999] flex items-end justify-center transition-opacity duration-300 ${
+        isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+      }`}>
+        <div className={`w-[360px] tall-screen:w-[720px] h-[70vh] bg-black rounded-t-2xl transform transition-all duration-300 ease-out flex flex-col items-center justify-center ${
+          isOpen ? 'translate-y-0' : 'translate-y-full'
+        }`}>
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
+          <p className="text-white/70 mt-4">Loading comments...</p>
+        </div>
+      </div>
+    );
+  }
 
   const toggleReplies = (commentId: string) => {
     setExpandedReplies(prev => ({
@@ -154,49 +173,49 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
     });
   };
 
-  // Generate placeholder replies if they don't exist
-  const commentsWithReplies = comments.map(comment => {
-    if (!comment.replies) {
-      return {
-        ...comment,
-        replies: [
-          {
-            id: `${comment.id}-reply-1`,
-            user: { name: 'User1', avatar: 'https://picsum.photos/seed/user1/100/100' },
-            text: 'This is a placeholder reply! (◕‿◕✿)',
-            likes: 5,
-            timestamp: '1h ago'
-          }
-        ]
-      };
-    }
-    return comment;
-  });
+//   // Generate placeholder replies if they don't exist
+//   const commentsWithReplies = comments.map(comment => {
+//     if (!comment.replies) {
+//       return {
+//         ...comment,
+//         replies: [
+//           {
+//             id: `${comment.id}-reply-1`,
+//             user: { name: 'User1', avatar: 'https://picsum.photos/seed/user1/100/100' },
+//             text: 'This is a placeholder reply! (◕‿◕✿)',
+//             likes: 5,
+//             timestamp: '1h ago'
+//           }
+//         ]
+//       };
+//     }
+//     return comment;
+//   });
 
-  // Add just one placeholder comment if there are no comments
-  const enhancedComments = commentsWithReplies.length === 0 
-    ? [
-        {
-          id: 'placeholder-1',
-          user: { 
-            name: 'KawaiiUser', 
-            avatar: 'https://picsum.photos/seed/kawaii1/100/100' 
-          },
-          text: 'This video is so kawaii! (◕‿◕✿)',
-          likes: 42,
-          timestamp: '2h ago',
-          replies: [
-            {
-              id: 'placeholder-1-reply-1',
-              user: { name: 'KawaiiFan', avatar: 'https://picsum.photos/seed/fan1/100/100' },
-              text: 'Totally agree! This is so kawaii! (◕‿◕✿)',
-              likes: 12,
-              timestamp: '1h ago'
-            }
-          ]
-        }
-      ] 
-    : commentsWithReplies;
+//   // Add just one placeholder comment if there are no comments
+//   const enhancedComments = commentsWithReplies.length === 0 
+//     ? [
+//         {
+//           id: 'placeholder-1',
+//           user: { 
+//             name: 'KawaiiUser', 
+//             avatar: 'https://picsum.photos/seed/kawaii1/100/100' 
+//           },
+//           text: 'This video is so kawaii! (◕‿◕✿)',
+//           likes: 42,
+//           timestamp: '2h ago',
+//           replies: [
+//             {
+//               id: 'placeholder-1-reply-1',
+//               user: { name: 'KawaiiFan', avatar: 'https://picsum.photos/seed/fan1/100/100' },
+//               text: 'Totally agree! This is so kawaii! (◕‿◕✿)',
+//               likes: 12,
+//               timestamp: '1h ago'
+//             }
+//           ]
+//         }
+//       ] 
+//     : commentsWithReplies;
 
   // Create portal content
   const commentsContent = (
@@ -204,10 +223,7 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
       className={`fixed inset-0 z-[9999] flex items-end justify-center transition-opacity duration-300 ${
         isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
       }`}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClose();
-      }}
+      onClick={onClose}
     >
       <div 
         className={`w-auto h-[55.6vh] bg-black rounded-t-2xl transform transition-all duration-300 ease-out flex flex-col ${
@@ -243,7 +259,7 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
           {enhancedComments.map((comment) => (
             <div key={comment.id} className="flex gap-2 p-2 hover:bg-white/5">
               <img 
-                src={comment.user.avatar} 
+                src={comment.user.profilePicture} 
                 alt={comment.user.name}
                 className="rounded-full"
                 style={{ 
@@ -350,7 +366,7 @@ export default function Comments({ isOpen, onClose, comments }: CommentsProps) {
           ))}
         </div>
 
-        {/* Comment Input - Now sticky at the bottom */}
+        {/* Comment Input */}
         <div className="sticky bottom-0 p-3 border-t border-gray-800 bg-black/50 backdrop-blur-sm">
           <div className="flex gap-2">
             <input 

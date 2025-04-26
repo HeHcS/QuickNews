@@ -7,6 +7,7 @@ import BottomNav from './BottomNav';
 import Comments from './Comments';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import ArticlePopup from './ArticlePopup';
+import { APP_CATEGORIES } from '../../config/categories';
 import Link from 'next/link';
 import { Heart, Share2, Play, Pause, Volume2, VolumeX, ChevronDown, ChevronUp, MessageCircle, NewspaperIcon, XIcon, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
@@ -47,23 +48,32 @@ if (typeof document !== 'undefined') {
 
 interface Video {
   id: string;
-  videoFile: string;  // This will be the full URL from the database
+  videoFile: string;
   title: string;
+  description: string;
+  likes: number;
+  comments: number;
   creator: {
     name: string;
     avatar?: string;
   };
-  likes: number;
-  comments: number;
   headline?: {
     text: string;
     source: string;
     timestamp: string;
   };
-  captions?: {
-    title: string;
-    text: string;
+}
+
+interface Comment {
+  _id: string;
+  user: {
+    name: string;
+    profilePicture: string;
   };
+  text: string;
+  likes: number;
+  createdAt: string;
+  repliesCount: number;
 }
 
 interface VideoPostProps {
@@ -79,247 +89,6 @@ interface VideoFeedProps {
   page?: number;
   limit?: number;
 }
-
-// Sample videos data
-const sampleVideos: { [key: string]: Video[] } = {
-  Breaking: [
-    {
-      id: 'breaking-1',
-      videoFile: '/VidAssets/bbcnewsvideo1.mp4',
-      title: 'Breaking: Latest News Update 📰',
-      creator: {
-        name: 'BBC News',
-        avatar: 'https://picsum.photos/seed/bbc1/100/100',
-      },
-      likes: 1234,
-      comments: 89
-    }
-  ],
-  Following: [
-    {
-      id: 'following-1',
-      videoFile: '/VidAssets/dylanpagevideo1.mp4',
-      title: 'From Your Favorite Creator 🌟',
-      creator: {
-        name: 'Dylan Page',
-        avatar: 'https://picsum.photos/seed/dylan1/100/100',
-      },
-      likes: 2345,
-      comments: 156
-    }
-  ],
-  'For You': [
-    {
-      id: 'foryou-1',
-      videoFile: '/VidAssets/dailymailvideo1.mp4',
-      title: 'Daily Mail Latest 📰',
-      creator: {
-        name: 'Daily Mail',
-        avatar: 'https://picsum.photos/seed/dailymail1/100/100',
-      },
-      likes: 1234,
-      comments: 89
-    },
-    {
-      id: 'foryou-2',
-      videoFile: '/VidAssets/dylanpagevideo2.mp4',
-      title: 'Dylan Page Latest 🎬',
-      creator: {
-        name: 'Dylan Page',
-        avatar: 'https://picsum.photos/seed/dylan2/100/100',
-      },
-      likes: 2345,
-      comments: 156
-    },
-    {
-      id: 'foryou-3',
-      videoFile: '/VidAssets/dailymailvideo2.mp4',
-      title: 'Daily Mail Update 📽️',
-      creator: {
-        name: 'Daily Mail',
-        avatar: 'https://picsum.photos/seed/dailymail2/100/100',
-      },
-      likes: 3456,
-      comments: 234
-    }
-  ],
-  Politics: [
-    {
-      id: 'politics-1',
-      videoFile: '/VidAssets/bbcnewsvideo1.mp4',
-      title: 'Latest Political Update 🏛️',
-      creator: {
-        name: 'BBC News',
-        avatar: 'https://picsum.photos/seed/bbc2/100/100',
-      },
-      likes: 3456,
-      comments: 234
-    }
-  ],
-  Tech: [
-    {
-      id: 'tech-1',
-      videoFile: '/VidAssets/dylanpagevideo1.mp4',
-      title: 'Latest Tech Innovation 💻',
-      creator: {
-        name: 'Dylan Page',
-        avatar: 'https://picsum.photos/seed/dylan3/100/100',
-      },
-      likes: 5678,
-      comments: 342
-    }
-  ],
-  Business: [
-    {
-      id: 'business-1',
-      videoFile: '/VidAssets/dailymailvideo2.mp4',
-      title: 'Business Insights 📈',
-      creator: {
-        name: 'Daily Mail',
-        avatar: 'https://picsum.photos/seed/dailymail3/100/100',
-      },
-      likes: 4567,
-      comments: 278
-    }
-  ]
-};
-
-// Sample comments data
-const sampleComments: { [key: string]: Array<{
-  id: string;
-  user: { name: string; avatar: string };
-  text: string;
-  likes: number;
-  timestamp: string;
-}> } = {
-  'foryou-1': [
-    {
-      id: '1',
-      user: {
-        name: 'Alice Chen',
-        avatar: 'https://picsum.photos/seed/alice/100/100',
-      },
-      text: 'This is amazing! The cinematography is on another level 🔥 Been waiting for content like this!',
-      likes: 842,
-      timestamp: '2h ago',
-    },
-    {
-      id: '2',
-      user: {
-        name: 'Bob Smith',
-        avatar: 'https://picsum.photos/seed/bob/100/100',
-      },
-      text: 'The lighting in this shot is perfect 👏 What camera setup did you use?',
-      likes: 324,
-      timestamp: '1h ago',
-    }
-  ],
-  'foryou-2': [
-    {
-      id: '1',
-      user: {
-        name: 'Michael Brown',
-        avatar: 'https://picsum.photos/seed/michael/100/100',
-      },
-      text: 'First time seeing your content and I\'m already hooked! 🎬 Instant follow!',
-      likes: 423,
-      timestamp: '1h ago',
-    },
-    {
-      id: '2',
-      user: {
-        name: 'Sophie Taylor',
-        avatar: 'https://picsum.photos/seed/sophie/100/100',
-      },
-      text: 'The way you transition between scenes is so smooth ✨ Need a tutorial on this!',
-      likes: 267,
-      timestamp: '45m ago',
-    }
-  ],
-  'foryou-3': [
-    {
-      id: '1',
-      user: {
-        name: 'Emma Watson',
-        avatar: 'https://picsum.photos/seed/emma/100/100',
-      },
-      text: '0:45 is literally the best part! Had to watch it multiple times 😍',
-      likes: 567,
-      timestamp: '45m ago',
-    },
-    {
-      id: '2',
-      user: {
-        name: 'David Kim',
-        avatar: 'https://picsum.photos/seed/david/100/100',
-      },
-      text: 'Been following your work for months, and you keep getting better! Any tips for aspiring creators?',
-      likes: 231,
-      timestamp: '20m ago',
-    }
-  ],
-  'breaking-1': [
-    {
-      id: '1',
-      user: {
-        name: 'Sarah Johnson',
-        avatar: 'https://picsum.photos/seed/sarah/100/100',
-      },
-      text: '🎵 Does anyone know the background music? It\'s so good!',
-      likes: 142,
-      timestamp: '5m ago',
-    }
-  ],
-  'following-1': [
-    {
-      id: '1',
-      user: {
-        name: 'James Wilson',
-        avatar: 'https://picsum.photos/seed/james/100/100',
-      },
-      text: 'This gives me such nostalgic vibes 🌟 Reminds me of old school cinematography but with a modern twist',
-      likes: 189,
-      timestamp: '30m ago',
-    }
-  ],
-  'politics-1': [
-    {
-      id: '1',
-      user: {
-        name: 'Michael Brown',
-        avatar: 'https://picsum.photos/seed/michael/100/100',
-      },
-      text: 'First time seeing your content and I\'m already hooked! 🎬 Instant follow!',
-      likes: 423,
-      timestamp: '1h ago',
-    }
-  ],
-  'tech-1': [
-    {
-      id: '1',
-      user: {
-        name: 'Sophie Taylor',
-        avatar: 'https://picsum.photos/seed/sophie/100/100',
-      },
-      text: 'The future of tech is looking bright! 🚀',
-      likes: 345,
-      timestamp: '2h ago',
-    }
-  ],
-  'business-1': [
-    {
-      id: '1',
-      user: {
-        name: 'James Wilson',
-        avatar: 'https://picsum.photos/seed/james/100/100',
-      },
-      text: 'Great insights on market trends! 📈',
-      likes: 278,
-      timestamp: '1h ago',
-    }
-  ],
-  // Add more comments for other videos...
-};
 
 const generateVideoContent = (videoFile: string | undefined) => {
   if (!videoFile) {
@@ -428,9 +197,6 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       clearTimeout(fadeTimeoutRef.current);
     }
   }, [video.id, isActive]);
-
-  // Generate content based on video file
-  const videoContent = generateVideoContent(video?.videoFile);
 
   // Early return if video data is invalid
   if (!video || !video.videoFile) {
@@ -1149,11 +915,14 @@ export default function VideoFeed() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [videoComments, setVideoComments] = useState<{ [key: string]: Comment[] }>({});
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
   const [lastScrollTop, setLastScrollTop] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isSeekbarDragging, setIsSeekbarDragging] = useState(false);
+    
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1165,13 +934,127 @@ export default function VideoFeed() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const seekbarRef = useRef<HTMLDivElement>(null);
   
-  // Define categories in the same order as TopNav
-  const categories = ['Breaking', 'Politics', 'For You', 'Tech', 'Business', 'Following'];
+  // Use category names from our configuration
+  const categories = APP_CATEGORIES.map(cat => cat.name);
   
   // Determine current category based on pathname
   const currentCategory = pathname === '/' || pathname === '/foryou' ? 'For You' : 
     pathname.slice(1).charAt(0).toUpperCase() + pathname.slice(2);
 
+  // Add function to fetch comments
+  const fetchComments = async (videoId: string) => {
+    try {
+      setIsLoadingComments(true);
+      const response = await axios.get('http://localhost:5000/api/engagement/comments', {
+        params: {
+          contentId: videoId,
+          contentType: 'Video',
+          limit: 10
+        }
+      });
+
+      if (response.data && response.data.comments) {
+        setVideoComments(prev => ({
+          ...prev,
+          [videoId]: response.data.comments.map((comment: any) => ({
+            _id: comment._id,
+            user: {
+              name: comment.user.name,
+              profilePicture: comment.user.profilePicture || '/default-avatar.png'
+            },
+            text: comment.text,
+            likes: comment.likes || 0,
+            createdAt: new Date(comment.createdAt).toLocaleString(),
+            repliesCount: comment.repliesCount || 0
+          }))
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching comments:', err);
+    } finally {
+      setIsLoadingComments(false);
+    }
+  };
+
+  // Add effect to fetch comments when a video becomes active
+  useEffect(() => {
+    if (videos[activeVideoIndex] && hasOpenComments) {
+      fetchComments(videos[activeVideoIndex].id);
+    }
+  }, [activeVideoIndex, hasOpenComments]);
+
+  useEffect(() => {
+    const fetchVideos = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        // Send category parameter if not "For You"
+        const params = currentCategory === 'For You' ? {} : { category: currentCategory };
+        
+        console.log('Fetching videos with params:', params);
+        console.log('Current category:', currentCategory);
+        
+        // Fetch videos from backend
+        const response = await axios.get('http://localhost:5000/api/videos/feed', {
+          params,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
+        });
+
+        console.log('Raw video feed response:', response.data);
+
+        // Check if response has the videos array
+        if (response.data && Array.isArray(response.data.videos)) {
+          // Map the response to include full video URLs and format the data
+          const videosWithUrls = response.data.videos.map((video: any) => ({
+            id: video._id,
+            videoFile: `http://localhost:5000/api/videos/${video._id}/stream`,
+            title: video.title || 'Untitled Video',
+            description: video.description || 'No description available',
+            likes: video.likes || 0,
+            comments: video.comments || 0,
+            creator: {
+              name: video.creator?.name || 'Anonymous',
+              avatar: video.creator?.profilePicture
+            },
+            headline: video.headline
+          }));
+          setVideos(videosWithUrls);
+        } else {
+          throw new Error('Invalid response format from server');
+        }
+      } catch (err: any) {
+        let errorMessage = 'Failed to fetch videos';
+        
+        if (err.code === 'ECONNABORTED') {
+          errorMessage = 'Request timed out. Please check your connection.';
+        } else if (err.response) {
+          // Server responded with error
+          errorMessage = err.response.data?.message || `Server error: ${err.response.status}`;
+          console.log('Server error response:', err.response.data);
+        } else if (err.request) {
+          // Request made but no response
+          errorMessage = 'Could not connect to server. Please check if the server is running.';
+          console.log('No response received:', err.request);
+        } else {
+          // Other errors
+          errorMessage = err.message || 'An unexpected error occurred';
+          console.log('Other error:', err);
+        }
+        
+        setError(errorMessage);
+        console.error('Error fetching videos:', {
+          code: err.code,
+          status: err.response?.status,
+          message: errorMessage,
+          error: err
+        });
+      } finally {
+        setIsLoading(false);
+      }
   // Add this effect to pause all videos when component mounts
   useEffect(() => {
     // Pause all videos when component mounts
@@ -1697,7 +1580,8 @@ export default function VideoFeed() {
         <Comments 
           isOpen={hasOpenComments}
           onClose={() => setHasOpenComments(false)}
-          comments={sampleComments[videos[activeVideoIndex].id] || []}
+          comments={videoComments[videos[activeVideoIndex].id] || []}
+          isLoading={isLoadingComments}
         />
       )}
 

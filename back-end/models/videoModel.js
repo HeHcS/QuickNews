@@ -30,8 +30,8 @@ const videoSchema = new mongoose.Schema({
     default: 0
   },
   categories: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Category'
+    type: String,
+    trim: true
   }],
   tags: [{
     type: String,
