@@ -810,7 +810,18 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
         </div>
 
         {/* Engagement Buttons */}
-        <div style={{ gap: getResponsiveSize(16) }} className="absolute right-4 top-[calc(50%+60px)] transform -translate-y-1/2 flex flex-col pointer-events-auto z-30">
+        <div
+          style={{
+            gap: getResponsiveSize(16),
+            right: '1rem',
+            top: getResponsiveSize(450),
+            position: 'absolute',
+            transform: 'translateY(-50%)',
+            zIndex: 30,
+            pointerEvents: 'auto',
+          }}
+          className="flex flex-col"
+        >
           <div className="flex flex-col items-center">
             <button 
               onClick={(e) => {
@@ -818,12 +829,12 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.preventDefault();
                 setIsLiked(!isLiked);
               }}
-              style={{ width: getResponsiveSize(44), height: getResponsiveSize(44) }}
+              style={{ width: getResponsiveSize(38), height: getResponsiveSize(38) }}
               className={`flex items-center justify-center rounded-full ${
                 isLiked ? 'text-[#29ABE2]' : 'text-white'
               }`}
                 >
-                  <div style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}>
+                  <div style={{ width: getResponsiveSize(28), height: getResponsiveSize(28) }}>
                     {isLiked ? 
                       <Heart className="text-[#29ABE2] fill-[#29ABE2] scale-125 transform transition-transform duration-300 w-full h-full" /> : 
                       <Heart className="text-white fill-white transform transition-transform duration-300 w-full h-full" />
@@ -839,10 +850,10 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.preventDefault();
                 onCommentsOpenChange(!isCommentsOpen);
               }}
-              style={{ width: getResponsiveSize(44), height: getResponsiveSize(44) }}
+              style={{ width: getResponsiveSize(38), height: getResponsiveSize(38) }}
               className="flex items-center justify-center rounded-full text-white hover:opacity-80 transition-opacity"
                 >
-                  <div style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}>
+                  <div style={{ width: getResponsiveSize(28), height: getResponsiveSize(28) }}>
                 <Image 
                   src="/assets/Vector-12.png"
                   alt="Comments"
@@ -860,10 +871,10 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.stopPropagation();
                 e.preventDefault();
               }}
-              style={{ width: getResponsiveSize(44), height: getResponsiveSize(44) }}
+              style={{ width: getResponsiveSize(38), height: getResponsiveSize(38) }}
               className="flex items-center justify-center rounded-full text-white hover:opacity-80 transition-opacity"
             >
-              <div style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}>
+              <div style={{ width: getResponsiveSize(28), height: getResponsiveSize(28) }}>
                 <Share2 className="w-full h-full" />
               </div>
             </button>

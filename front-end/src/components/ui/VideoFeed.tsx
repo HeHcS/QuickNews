@@ -146,6 +146,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
   const dragStartX = useRef<number>(0);
   const dragStartTime = useRef<number>(0);
 
+  // Add a new state to track the last action for the play/pause button
+  const [lastAction, setLastAction] = useState<'pause' | 'play' | null>(null);
+
   // Reset states when video changes or becomes inactive
   useEffect(() => {
     setIsLiked(false);
@@ -327,37 +330,34 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
   const togglePlay = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     e.preventDefault();
-    
     const video = videoRef.current;
     if (!video) return;
-
-    // Clear any pending pause timeout to prevent conflicts
     if (playPauseTimeoutRef.current) {
       clearTimeout(playPauseTimeoutRef.current);
       playPauseTimeoutRef.current = null;
     }
-
     if (video.paused) {
-      // If there's another video playing, pause it first
+      // Play the video
       if (currentlyPlayingVideoRef.current && currentlyPlayingVideoRef.current !== video) {
         currentlyPlayingVideoRef.current.pause();
       }
-      
-      // Set this as the currently playing video
       currentlyPlayingVideoRef.current = video;
-      
-      // Play the video immediately
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
             setIsPlaying(true);
-            // Add a smooth fade-out animation for the pause icon
-            setIsPlayPauseFading(true);
-            setTimeout(() => {
-              setShowPlayPause(false);
-              setIsPlayPauseFading(false);
-            }, 300); // Match this with CSS transition duration
+            setShowPlayPause(true); // Show pause icon
+            setIsPlayPauseFading(false);
+            setLastAction('play');
+            // Fade out after 350ms (was 600ms)
+            playPauseTimeoutRef.current = setTimeout(() => {
+              setIsPlayPauseFading(true);
+              fadeTimeoutRef.current = setTimeout(() => {
+                setShowPlayPause(false);
+                setIsPlayPauseFading(false);
+              }, 200); // Fade duration 200ms (was 400ms)
+            }, 350);
           })
           .catch(() => setIsPlaying(false));
       }
@@ -365,23 +365,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       // Pause the video immediately
       video.pause();
       setIsPlaying(false);
-      
-      // Show pause button when paused
+      setShowPlayPause(true); // Show pause icon
       setIsPlayPauseFading(false);
-      setShowPlayPause(true);
-      
-      // Start fade out after 1 second
-      playPauseTimeoutRef.current = setTimeout(() => {
-        setIsPlayPauseFading(true);
-        
-        // Hide button after fade animation completes
-        fadeTimeoutRef.current = setTimeout(() => {
-          setShowPlayPause(false);
-          setIsPlayPauseFading(false);
-        }, 500); // Match this with CSS transition duration
-      }, 1000);
-      
-      // If this was the currently playing video, clear the reference
+      setLastAction('pause');
       if (currentlyPlayingVideoRef.current === video) {
         currentlyPlayingVideoRef.current = null;
       }
@@ -597,20 +583,21 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       <div className="absolute inset-0 z-50">
         {/* Play/Pause Button - Center */}
         {showPlayPause && (
-        <div 
-          className="absolute inset-0 flex items-center justify-center"
+          <div 
+            className="absolute inset-0 flex items-center justify-center"
           >
             <div 
               className={`w-16 h-16 flex items-center justify-center rounded-full bg-black/40 text-white transition-all duration-500 ease-in-out transform ${
                 isPlayPauseFading ? 'opacity-0 scale-90' : 'opacity-100 scale-100'
               }`}
             >
+              {/* Swap icons: Show Pause when playing (fade out), Play when paused (always on) */}
               {isPlaying ? (
                 <Pause size={32} />
               ) : (
-              <Play size={32} />
-          )}
-        </div>
+                <Play size={32} />
+              )}
+            </div>
           </div>
         )}
 
@@ -789,7 +776,16 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
         </div>
 
         {/* Engagement Buttons */}
-        <div style={{ gap: getResponsiveSize(16) }} className="absolute right-4 top-[calc(50%+60px)] transform -translate-y-1/2 flex flex-col">
+        <div
+          style={{
+            gap: getResponsiveSize(16),
+            right: '1rem',
+            top: getResponsiveSize(450),
+            position: 'absolute',
+            transform: 'translateY(-50%)',
+          }}
+          className="flex flex-col"
+        >
           <div className="flex flex-col items-center">
             <button 
               onClick={(e) => {
@@ -797,12 +793,12 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.preventDefault();
                 setIsLiked(!isLiked);
               }}
-              style={{ width: getResponsiveSize(44), height: getResponsiveSize(44) }}
+              style={{ width: getResponsiveSize(38), height: getResponsiveSize(38) }}
               className={`flex items-center justify-center rounded-full ${
                 isLiked ? 'text-[#29ABE2]' : 'text-white'
               }`}
             >
-              <div style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}>
+              <div style={{ width: getResponsiveSize(28), height: getResponsiveSize(28) }}>
                 {isLiked ? 
                   <Heart className="text-[#29ABE2] fill-[#29ABE2] scale-125 transform transition-transform duration-300 w-full h-full" /> : 
                   <Heart className="text-white fill-white transform transition-transform duration-300 w-full h-full" />
@@ -818,15 +814,15 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.preventDefault();
                 onCommentsOpenChange(!isCommentsOpen);
               }}
-              style={{ width: getResponsiveSize(44), height: getResponsiveSize(44) }}
+              style={{ width: getResponsiveSize(38), height: getResponsiveSize(38) }}
               className="flex items-center justify-center rounded-full text-white hover:opacity-80 transition-opacity"
             >
-              <div style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}>
+              <div style={{ width: getResponsiveSize(28), height: getResponsiveSize(28) }}>
                 <Image 
                   src="/assets/Vector-12.png"
                   alt="Comments"
-                  width={32}
-                  height={32}
+                  width={28}
+                  height={28}
                   className="w-full h-full transform transition-transform duration-300"
                 />
               </div>
@@ -839,10 +835,10 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.stopPropagation();
                 e.preventDefault();
               }}
-              style={{ width: getResponsiveSize(44), height: getResponsiveSize(44) }}
+              style={{ width: getResponsiveSize(38), height: getResponsiveSize(38) }}
               className="flex items-center justify-center rounded-full text-white hover:opacity-80 transition-opacity"
             >
-              <div style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}>
+              <div style={{ width: getResponsiveSize(28), height: getResponsiveSize(28) }}>
                 <Share2 className="w-full h-full" />
               </div>
             </button>
@@ -1049,7 +1045,7 @@ export default function VideoFeed() {
         setCurrentVideoIndex(videoIndex);
         const videoElement = document.getElementById(`video-${videoId}`);
         if (videoElement) {
-          videoElement.scrollIntoView({ behavior: 'smooth' });
+          videoElement.scrollIntoView({ behavior: 'auto' });
         }
       }
     }
