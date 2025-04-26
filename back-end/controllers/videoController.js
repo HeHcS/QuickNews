@@ -718,4 +718,195 @@ export const getVideo = catchAsync(async (req, res, next) => {
       video
     }
   });
+});
+
+/**
+ * Get videos from a specific creator with pagination
+ * @route GET /api/videos/creator/:creatorId
+ * @access Public
+ */
+export const getCreatorVideos = catchAsync(async (req, res) => {
+  const { creatorId } = req.params;
+  const page = Math.max(1, parseInt(req.query.page) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 12));
+  const skip = (page - 1) * limit;
+
+  // Validate creator ID
+  if (!mongoose.Types.ObjectId.isValid(creatorId)) {
+    throw new AppError('Invalid creator ID format', 400);
+  }
+
+  // Get user ID if authenticated
+  const userId = req.user ? req.user._id : null;
+
+  // Create cache key
+  const cacheKey = `${CACHE_KEYS.FEED}creator:${creatorId}:${page}:${limit}:${userId || 'anon'}`;
+
+  // Try to get cached data
+  const cachedData = await getCache(cacheKey);
+  if (cachedData) {
+    return res.json(cachedData);
+  }
+
+  // Build aggregation pipeline
+  const pipeline = [
+    { 
+      $match: { 
+        creator: new mongoose.Types.ObjectId(creatorId),
+        isPublished: true 
+      } 
+    },
+    { $sort: { createdAt: -1 } },
+    { $skip: skip },
+    { $limit: limit },
+    // Lookup creator details
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'creator',
+        foreignField: '_id',
+        as: 'creator'
+      }
+    },
+    { 
+      $unwind: {
+        path: '$creator',
+        preserveNullAndEmptyArrays: true
+      }
+    },
+    // Get likes count
+    {
+      $lookup: {
+        from: 'likes',
+        let: { videoId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$content', '$$videoId'] },
+                  { $eq: ['$contentType', 'Video'] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'likesInfo'
+      }
+    },
+    // Get comments count
+    {
+      $lookup: {
+        from: 'comments',
+        let: { videoId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$content', '$$videoId'] },
+                  { $eq: ['$contentType', 'Video'] },
+                  { $eq: ['$parentComment', null] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'commentsInfo'
+      }
+    }
+  ];
+
+  // Add user-specific lookups if user is authenticated
+  if (userId) {
+    // Check if user has liked the video
+    pipeline.push({
+      $lookup: {
+        from: 'likes',
+        let: { videoId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$content', '$$videoId'] },
+                  { $eq: ['$contentType', 'Video'] },
+                  { $eq: ['$user', new mongoose.Types.ObjectId(userId)] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'userLikeInfo'
+      }
+    });
+
+    // Check if user has bookmarked the video
+    pipeline.push({
+      $lookup: {
+        from: 'bookmarks',
+        let: { videoId: '$_id' },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ['$video', '$$videoId'] },
+                  { $eq: ['$user', new mongoose.Types.ObjectId(userId)] }
+                ]
+              }
+            }
+          }
+        ],
+        as: 'bookmarkInfo'
+      }
+    });
+  }
+
+  // Add computed fields
+  pipeline.push({
+    $addFields: {
+      likes: { $size: '$likesInfo' },
+      comments: { $size: '$commentsInfo' },
+      userLiked: userId ? { $gt: [{ $size: '$userLikeInfo' }, 0] } : false,
+      userBookmarked: userId ? { $gt: [{ $size: '$bookmarkInfo' }, 0] } : false
+    }
+  });
+
+  // Clean up temporary fields
+  pipeline.push({
+    $project: {
+      likesInfo: 0,
+      commentsInfo: 0,
+      userLikeInfo: 0,
+      bookmarkInfo: 0,
+      'creator.password': 0,
+      'creator.email': 0
+    }
+  });
+
+  // Get total count for pagination
+  const totalCount = await Video.countDocuments({ 
+    creator: new mongoose.Types.ObjectId(creatorId),
+    isPublished: true 
+  });
+
+  // Execute aggregation
+  const videos = await Video.aggregate(pipeline);
+
+  const response = {
+    videos,
+    pagination: {
+      page,
+      limit,
+      totalVideos: totalCount,
+      totalPages: Math.ceil(totalCount / limit),
+      hasMore: page * limit < totalCount
+    }
+  };
+
+  // Cache the response
+  await setCache(cacheKey, response, 300); // Cache for 5 minutes
+
+  res.json(response);
 }); 

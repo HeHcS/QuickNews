@@ -403,7 +403,7 @@ export default function VideoFeed() {
             comments: video.comments || 0,
             creator: {
               name: video.creator?.name || 'Anonymous',
-              avatar: video.creator?.avatar
+              avatar: video.creator?.profilePicture
             },
             headline: video.headline
           }));
