@@ -6,6 +6,7 @@ import TopNav from './TopNav';
 import BottomNav from './BottomNav';
 import Comments from './Comments';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import axios from 'axios';
 import ArticlePopup from './ArticlePopup';
 import { APP_CATEGORIES } from '../../config/categories';
 import Link from 'next/link';
@@ -74,6 +75,7 @@ interface Comment {
   likes: number;
   createdAt: string;
   repliesCount: number;
+  timestamp: string;
 }
 
 interface VideoPostProps {
@@ -490,97 +492,6 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     };
   }, []);
 
-  // Handle seeking
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!videoRef.current || !seekbarRef.current) return;
-    
-    const videoElement = videoRef.current;
-    const seekBar = seekbarRef.current;
-    const rect = seekBar.getBoundingClientRect();
-    const seekPosition = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    
-    // Set the video time based on the seek position
-    videoElement.currentTime = seekPosition * videoElement.duration;
-  };
-
-  // Handle seekbar drag start
-  const handleSeekbarDragStart = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!videoRef.current || !seekbarRef.current) return;
-    
-    setIsSeekbarDragging(true);
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    dragStartX.current = clientX;
-    dragStartTime.current = videoRef.current.currentTime;
-    
-    e.stopPropagation(); // Prevent other event handlers from firing
-  };
-
-  // Handle seekbar drag
-  const handleSeekbarDrag = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isSeekbarDragging || !videoRef.current || !seekbarRef.current) return;
-    
-    const videoElement = videoRef.current;
-    const seekBar = seekbarRef.current;
-    const rect = seekBar.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    
-    // Calculate the drag distance and convert to time
-    const dragDistance = clientX - dragStartX.current;
-    const seekBarWidth = rect.width;
-    const timeChange = (dragDistance / seekBarWidth) * videoElement.duration;
-    
-    // Set the new time, ensuring it stays within bounds
-    const newTime = Math.max(0, Math.min(videoElement.duration, dragStartTime.current + timeChange));
-    videoElement.currentTime = newTime;
-    
-    e.stopPropagation(); // Prevent other event handlers from firing
-  };
-
-  // Handle seekbar drag end
-  const handleSeekbarDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
-    setIsSeekbarDragging(false);
-    e.stopPropagation(); // Prevent other event handlers from firing
-  };
-
-  // Add event listeners for seekbar dragging
-  useEffect(() => {
-    if (!seekbarRef.current) return;
-    
-    const seekbar = seekbarRef.current;
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDrag(e as unknown as React.MouseEvent);
-    };
-    
-    const handleMouseUp = (e: MouseEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDragEnd(e as unknown as React.MouseEvent);
-    };
-    
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDrag(e as unknown as React.TouchEvent);
-    };
-    
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDragEnd(e as unknown as React.TouchEvent);
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('touchmove', handleTouchMove);
-    document.addEventListener('touchend', handleTouchEnd);
-    
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [isSeekbarDragging]);
-
   // Update video time and duration
   useEffect(() => {
     if (!videoRef.current) return;
@@ -603,6 +514,81 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
   }, []);
+
+  // Update the seekbar related code
+  const handleSeekbarDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!videoRef.current || !seekbarRef.current) return;
+    
+    e.stopPropagation(); // Prevent video play/pause
+    e.preventDefault(); // Prevent text selection
+    
+    setIsSeekbarDragging(true);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    dragStartX.current = clientX;
+    dragStartTime.current = videoRef.current.currentTime;
+  };
+
+  const handleSeekbarDrag = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isSeekbarDragging || !videoRef.current || !seekbarRef.current) return;
+    
+    e.stopPropagation();
+    e.preventDefault();
+    
+    const videoElement = videoRef.current;
+    const seekBar = seekbarRef.current;
+    const rect = seekBar.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    
+    // Calculate seek position as a percentage
+    const seekPosition = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    
+    // Set video time directly based on position
+    videoElement.currentTime = seekPosition * videoElement.duration;
+  };
+
+  const handleSeekbarDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isSeekbarDragging) return;
+    
+    e.stopPropagation();
+    e.preventDefault();
+    
+    setIsSeekbarDragging(false);
+  };
+
+  // Update the useEffect for event listeners
+  useEffect(() => {
+    if (!isSeekbarDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      handleSeekbarDrag(e as unknown as React.MouseEvent);
+    };
+    
+    const handleMouseUp = (e: MouseEvent) => {
+      handleSeekbarDragEnd(e as unknown as React.MouseEvent);
+    };
+    
+    const handleTouchMove = (e: TouchEvent) => {
+      handleSeekbarDrag(e as unknown as React.TouchEvent);
+    };
+    
+    const handleTouchEnd = (e: TouchEvent) => {
+      handleSeekbarDragEnd(e as unknown as React.TouchEvent);
+    };
+    
+    // Add event listeners
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+    
+    return () => {
+      // Clean up event listeners
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isSeekbarDragging]);
 
   return (
     <div 
@@ -678,7 +664,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
           }} 
           className="absolute left-0 right-[10px] p-4 text-white"
         >
-          <h2 style={{ fontSize: getResponsiveSize(20) }} className="font-bold mb-0 select-none mt-[2%] max-w-[75%]">{videoContent.title}</h2>
+          <h2 style={{ fontSize: getResponsiveSize(20) }} className="font-bold mb-0 select-none mt-[2%] max-w-[75%]">
+            {generateVideoContent(video.videoFile).title}
+          </h2>
           <div className="relative">
             <div 
               className={`overflow-hidden transition-all duration-500 ease-in-out transform ${
@@ -696,7 +684,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 WebkitLineClamp: isCaptionsExpanded ? 'unset' : '2',
                 WebkitBoxOrient: 'vertical',
                 overflow: 'hidden'
-              }} className="select-none max-w-[85%] text-gray-300">{videoContent.text}</p>
+              }} className="select-none max-w-[85%] text-gray-300">
+                {generateVideoContent(video.videoFile).text}
+              </p>
             </div>
             <div className="relative mt-1 bg-transparent">
               <button 
@@ -826,7 +816,6 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
           <div 
             ref={seekbarRef}
             className="mt-2 h-1 bg-black/30 rounded-full cursor-pointer select-none group"
-            onClick={handleSeek}
             onMouseDown={handleSeekbarDragStart}
             onTouchStart={handleSeekbarDragStart}
           >
@@ -965,7 +954,8 @@ export default function VideoFeed() {
             text: comment.text,
             likes: comment.likes || 0,
             createdAt: new Date(comment.createdAt).toLocaleString(),
-            repliesCount: comment.repliesCount || 0
+            repliesCount: comment.repliesCount || 0,
+            timestamp: comment.timestamp
           }))
         }));
       }
@@ -1055,6 +1045,11 @@ export default function VideoFeed() {
       } finally {
         setIsLoading(false);
       }
+    };
+
+    fetchVideos();
+  }, [currentCategory]);
+
   // Add this effect to pause all videos when component mounts
   useEffect(() => {
     // Pause all videos when component mounts
@@ -1075,23 +1070,6 @@ export default function VideoFeed() {
       pauseAllVideos();
     };
   }, [videos]);
-
-  useEffect(() => {
-    // Instead of fetching from server, use sample videos
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      // Get videos for current category
-      const categoryVideos = sampleVideos[currentCategory] || [];
-      setVideos(categoryVideos);
-    } catch (err: any) {
-      setError('Failed to load videos');
-      console.error('Error loading videos:', err);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [currentCategory]);
 
   // Add debug log for videos state changes
   useEffect(() => {
@@ -1143,97 +1121,6 @@ export default function VideoFeed() {
       videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
   }, [activeVideoIndex, videos]);
-
-  // Handle seeking
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!videoRef.current) return;
-    
-    const videoElement = videoRef.current;
-    const seekBar = e.currentTarget;
-    const rect = seekBar.getBoundingClientRect();
-    const seekPosition = (e.clientX - rect.left) / rect.width;
-    
-    // Set the video time based on the seek position
-    videoElement.currentTime = seekPosition * videoElement.duration;
-  };
-
-  // Handle seekbar drag start
-  const handleSeekbarDragStart = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!videoRef.current || !seekbarRef.current) return;
-    
-    setIsSeekbarDragging(true);
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    dragStartX.current = clientX;
-    dragStartTime.current = videoRef.current.currentTime;
-    
-    e.stopPropagation(); // Prevent other event handlers from firing
-  };
-
-  // Handle seekbar drag
-  const handleSeekbarDrag = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isSeekbarDragging || !videoRef.current || !seekbarRef.current) return;
-    
-    const videoElement = videoRef.current;
-    const seekBar = seekbarRef.current;
-    const rect = seekBar.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    
-    // Calculate the drag distance and convert to time
-    const dragDistance = clientX - dragStartX.current;
-    const seekBarWidth = rect.width;
-    const timeChange = (dragDistance / seekBarWidth) * videoElement.duration;
-    
-    // Set the new time, ensuring it stays within bounds
-    const newTime = Math.max(0, Math.min(videoElement.duration, dragStartTime.current + timeChange));
-    videoElement.currentTime = newTime;
-    
-    e.stopPropagation(); // Prevent other event handlers from firing
-  };
-
-  // Handle seekbar drag end
-  const handleSeekbarDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
-    setIsSeekbarDragging(false);
-    e.stopPropagation(); // Prevent other event handlers from firing
-  };
-
-  // Add event listeners for seekbar dragging
-  useEffect(() => {
-    if (!seekbarRef.current) return;
-    
-    const seekbar = seekbarRef.current;
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDrag(e as unknown as React.MouseEvent);
-    };
-    
-    const handleMouseUp = (e: MouseEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDragEnd(e as unknown as React.MouseEvent);
-    };
-    
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDrag(e as unknown as React.TouchEvent);
-    };
-    
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDragEnd(e as unknown as React.TouchEvent);
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('touchmove', handleTouchMove);
-    document.addEventListener('touchend', handleTouchEnd);
-    
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [isSeekbarDragging]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (hasOpenComments || hasOpenArticle) return;

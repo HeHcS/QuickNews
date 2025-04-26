@@ -17,16 +17,20 @@ interface Comment {
   };
   text: string;
   likes: number;
-  timestamp: string;
-  replies?: Reply[];
+  createdAt: string;
+  repliesCount: number;
+  replies?: Reply[];  // Make replies optional since not all comments have replies
 }
 
 interface Reply {
-  id: string;
-  user: { name: string; avatar: string };
+  _id: string;
+  user: {
+    name: string;
+    profilePicture: string;
+  };
   text: string;
   likes: number;
-  timestamp: string;
+  createdAt: string;
 }
 
 interface CommentsProps {
@@ -55,11 +59,11 @@ export default function Comments({ isOpen, onClose, comments, isLoading = false 
       const initialReplyLikes: Record<string, number> = {};
       
       comments.forEach(comment => {
-        initialCommentLikes[comment.id] = comment.likes;
+        initialCommentLikes[comment._id] = comment.likes;
         
         if (comment.replies) {
           comment.replies.forEach(reply => {
-            initialReplyLikes[reply.id] = reply.likes;
+            initialReplyLikes[reply._id] = reply.likes;
           });
         }
       });
@@ -81,20 +85,20 @@ export default function Comments({ isOpen, onClose, comments, isLoading = false 
     e.stopPropagation();
   };
 
-  if (isLoading) {
-    return (
-      <div className={`fixed inset-0 z-[9999] flex items-end justify-center transition-opacity duration-300 ${
-        isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      }`}>
-        <div className={`w-[360px] tall-screen:w-[720px] h-[70vh] bg-black rounded-t-2xl transform transition-all duration-300 ease-out flex flex-col items-center justify-center ${
-          isOpen ? 'translate-y-0' : 'translate-y-full'
-        }`}>
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
-          <p className="text-white/70 mt-4">Loading comments...</p>
-        </div>
-      </div>
-    );
-  }
+  // if (isLoading) {
+  //   return (
+  //     <div className={`fixed inset-0 z-[9999] flex items-end justify-center transition-opacity duration-300 ${
+  //       isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+  //     }`}>
+  //       <div className={`w-[360px] tall-screen:w-[720px] h-[70vh] bg-black rounded-t-2xl transform transition-all duration-300 ease-out flex flex-col items-center justify-center ${
+  //         isOpen ? 'translate-y-0' : 'translate-y-full'
+  //       }`}>
+  //         <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-white"></div>
+  //         <p className="text-white/70 mt-4">Loading comments...</p>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   const toggleReplies = (commentId: string) => {
     setExpandedReplies(prev => ({
@@ -243,7 +247,7 @@ export default function Comments({ isOpen, onClose, comments, isLoading = false 
         {/* Header */}
         <div className="flex items-center justify-between p-3 border-b border-gray-800">
           <div className="flex items-center gap-2">
-            <span className="text-white/70 text-sm">{enhancedComments.length} Comments</span>
+            <span className="text-white/70 text-sm">{comments.length} Comments</span>
           </div>
           <button 
             onClick={onClose}
@@ -256,8 +260,8 @@ export default function Comments({ isOpen, onClose, comments, isLoading = false 
 
         {/* Comments List */}
         <div className="flex-1 overflow-y-auto scrollbar-hide">
-          {enhancedComments.map((comment) => (
-            <div key={comment.id} className="flex gap-2 p-2 hover:bg-white/5">
+          {comments.map((comment: Comment) => (
+            <div key={comment._id} className="flex gap-2 p-2 hover:bg-white/5">
               <img 
                 src={comment.user.profilePicture} 
                 alt={comment.user.name}
@@ -270,22 +274,22 @@ export default function Comments({ isOpen, onClose, comments, isLoading = false 
               <div className="flex-1">
                 <div className="flex items-center gap-2">
                   <span style={{ fontSize: getResponsiveSize(12) }} className="font-semibold text-white">{comment.user.name}</span>
-                  <span style={{ fontSize: getResponsiveSize(10) }} className="text-white/50">{comment.timestamp}</span>
+                  <span style={{ fontSize: getResponsiveSize(10) }} className="text-white/50">{comment.createdAt}</span>
                 </div>
                 <p style={{ fontSize: getResponsiveSize(12) }} className="mt-1 text-white">{comment.text}</p>
                 <div className="flex items-center gap-3 mt-1">
                   <button 
-                    onClick={() => handleCommentLike(comment.id)}
+                    onClick={() => handleCommentLike(comment._id)}
                     className={`flex items-center gap-1 transition-colors ${
-                      likedComments[comment.id] ? 'text-red-500' : 'text-white/70 hover:text-white'
+                      likedComments[comment._id] ? 'text-red-500' : 'text-white/70 hover:text-white'
                     }`}
                     style={{ fontSize: getResponsiveSize(10) }}
                   >
-                    <span>{likedComments[comment.id] ? '❤️' : '🤍'}</span>
-                    <span>{commentLikes[comment.id] || comment.likes}</span>
+                    <span>{likedComments[comment._id] ? '❤️' : '🤍'}</span>
+                    <span>{commentLikes[comment._id] || comment.likes}</span>
                   </button>
                   <button 
-                    onClick={() => handleReplyClick(comment.id)}
+                    onClick={() => handleReplyClick(comment._id)}
                     className="text-white/70 hover:text-white"
                     style={{ fontSize: getResponsiveSize(10) }}
                   >
@@ -294,21 +298,21 @@ export default function Comments({ isOpen, onClose, comments, isLoading = false 
                 </div>
 
                 {/* Replies Section */}
-                {expandedReplies[comment.id] && (
+                {expandedReplies[comment._id] && comment.replies && (
                   <div className="mt-3 pl-4 border-l-2 border-white/10">
                     {/* Reply Input Field */}
-                    {activeReplyId === comment.id && (
+                    {activeReplyId === comment._id && (
                       <div className="flex gap-2 mb-3">
                         <input 
                           type="text" 
-                          value={replyText[comment.id] || ''}
-                          onChange={(e) => handleReplyChange(comment.id, e.target.value)}
+                          value={replyText[comment._id] || ''}
+                          onChange={(e) => handleReplyChange(comment._id, e.target.value)}
                           placeholder="Write a reply..."
                           className="flex-1 bg-white/10 rounded-full px-3 py-1.5 text-white placeholder-white/50 focus:outline-none"
                           style={{ fontSize: getResponsiveSize(12) }}
                         />
                         <button 
-                          onClick={() => handleSubmitReply(comment.id)}
+                          onClick={() => handleSubmitReply(comment._id)}
                           className="px-3 py-1.5 bg-blue-500 text-white font-medium rounded-full hover:bg-blue-600 transition-colors"
                           style={{ fontSize: getResponsiveSize(12) }}
                         >
@@ -318,10 +322,10 @@ export default function Comments({ isOpen, onClose, comments, isLoading = false 
                     )}
 
                     {/* Replies List */}
-                    {comment.replies && comment.replies.map((reply) => (
-                      <div key={reply.id} className="flex gap-1 mb-2">
+                    {comment.replies && comment.replies.map((reply: Reply) => (
+                      <div key={reply._id} className="flex gap-1 mb-2">
                         <img 
-                          src={reply.user.avatar} 
+                          src={reply.user.profilePicture} 
                           alt={reply.user.name}
                           className="rounded-full"
                           style={{ 
@@ -332,19 +336,19 @@ export default function Comments({ isOpen, onClose, comments, isLoading = false 
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span style={{ fontSize: getResponsiveSize(10) }} className="font-medium text-white">{reply.user.name}</span>
-                            <span style={{ fontSize: getResponsiveSize(9) }} className="text-white/50">{reply.timestamp}</span>
+                            <span style={{ fontSize: getResponsiveSize(9) }} className="text-white/50">{reply.createdAt}</span>
                           </div>
                           <p style={{ fontSize: getResponsiveSize(10) }} className="mt-0.5 text-white">{reply.text}</p>
                           <div className="flex items-center gap-3 mt-1">
                             <button 
-                              onClick={() => handleReplyLike(reply.id)}
+                              onClick={() => handleReplyLike(reply._id)}
                               className={`flex items-center gap-1 transition-colors ${
-                                likedReplies[reply.id] ? 'text-red-500' : 'text-white/70 hover:text-white'
+                                likedReplies[reply._id] ? 'text-red-500' : 'text-white/70 hover:text-white'
                               }`}
                               style={{ fontSize: getResponsiveSize(10) }}
                             >
-                              <span>{likedReplies[reply.id] ? '❤️' : '🤍'}</span>
-                              <span>{replyLikes[reply.id] || reply.likes}</span>
+                              <span>{likedReplies[reply._id] ? '❤️' : '🤍'}</span>
+                              <span>{replyLikes[reply._id] || reply.likes}</span>
                             </button>
                           </div>
                         </div>
@@ -353,11 +357,11 @@ export default function Comments({ isOpen, onClose, comments, isLoading = false 
 
                     {/* Show/Hide Replies Button */}
                     <button 
-                      onClick={() => toggleReplies(comment.id)}
+                      onClick={() => toggleReplies(comment._id)}
                       className="text-blue-400 hover:text-blue-300 transition-colors"
                       style={{ fontSize: getResponsiveSize(10) }}
                     >
-                      {expandedReplies[comment.id] ? 'Hide replies' : 'Show replies'}
+                      {expandedReplies[comment._id] ? 'Hide replies' : 'Show replies'}
                     </button>
                   </div>
                 )}
