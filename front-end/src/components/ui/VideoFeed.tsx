@@ -92,47 +92,7 @@ interface VideoFeedProps {
   limit?: number;
 }
 
-const generateVideoContent = (videoFile: string | undefined) => {
-  if (!videoFile) {
-    return {
-      title: 'Content Unavailable',
-      text: 'This content is currently unavailable.'
-    };
-  }
-
-  const filename = videoFile.split('/').pop()?.replace('.mp4', '') || '';
-  
-  // Define content templates based on video source
-  const contentTemplates: { [key: string]: { title: string; text: string } } = {
-    'bbcnewsvideo1': {
-      title: 'Breaking: Major Climate Agreement Reached',
-      text: 'World leaders have reached a historic agreement on climate change at the latest UN summit. The groundbreaking deal includes ambitious targets for reducing global emissions and establishes a new framework for international cooperation. This marks a significant step forward in the global fight against climate change, with nations committing to specific actionable goals.'
-    },
-    'dailymailvideo1': {
-      title: 'Exclusive: Inside the Royal Family\'s New Initiative',
-      text: 'The Royal Family has launched a groundbreaking environmental campaign, setting new standards for sustainable living. This exclusive report takes you behind the scenes of their latest green initiative, showing how the monarchy is adapting to modern environmental challenges.'
-    },
-    'dailymailvideo2': {
-      title: 'Celebrity Charity Event Raises Millions',
-      text: 'Hollywood\'s biggest stars came together for an unprecedented charity gala, raising millions for global education initiatives. The star-studded event featured exclusive performances and surprise announcements that will impact communities worldwide.'
-    },
-    'dylanpagevideo1': {
-      title: 'Behind the Scenes: A Day in Tech Valley',
-      text: 'Join me as I explore the latest innovations in Silicon Valley. From cutting-edge startups to tech giants, we\'re getting an exclusive look at what\'s shaping our digital future. The energy here is incredible, and the innovations we\'re seeing are going to change the way we live and work.'
-    },
-    'dylanpagevideo2': {
-      title: 'The Future of Electric Vehicles: What\'s Next?',
-      text: 'Taking a deep dive into the revolutionary changes happening in the electric vehicle industry. From new battery technology to autonomous driving features, we\'re exploring how these innovations are reshaping transportation for the next generation.'
-    }
-  };
-
-  return contentTemplates[filename] || {
-    title: 'Latest Update',
-    text: 'Stay tuned for more exciting content and updates.'
-  };
-};
-
-// Helper function for responsive sizing based on viewport height
+// Helper functions for responsive sizing
 const clamp = (min: number, val: number, max: number): number => {
   return Math.min(Math.max(min, val), max);
 };
@@ -665,7 +625,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
           className="absolute left-0 right-[10px] p-4 text-white"
         >
           <h2 style={{ fontSize: getResponsiveSize(20) }} className="font-bold mb-0 select-none mt-[2%] max-w-[75%]">
-            {generateVideoContent(video.videoFile).title}
+            {video.title}
           </h2>
           <div className="relative">
             <div 
@@ -685,7 +645,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 WebkitBoxOrient: 'vertical',
                 overflow: 'hidden'
               }} className="select-none max-w-[85%] text-gray-300">
-                {generateVideoContent(video.videoFile).text}
+                {video.description}
               </p>
             </div>
             <div className="relative mt-1 bg-transparent">
@@ -1477,8 +1437,8 @@ export default function VideoFeed() {
         <ArticlePopup 
           isOpen={hasOpenArticle}
           onClose={() => setHasOpenArticle(false)}
-          title={generateVideoContent(videos[activeVideoIndex].videoFile).title}
-          content={generateVideoContent(videos[activeVideoIndex].videoFile).text}
+          title={videos[activeVideoIndex].title}
+          content={videos[activeVideoIndex].description}
         />
       )}
     </div>
