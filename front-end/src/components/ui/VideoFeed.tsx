@@ -50,6 +50,7 @@ if (typeof document !== 'undefined') {
 interface Video {
   id: string;
   videoFile: string;
+  thumbnail: string;
   title: string;
   description: string;
   likes: number;
@@ -108,7 +109,7 @@ const getResponsiveSize = (baseSize: number): string => {
 // Add this at the top of the file, after imports
 const currentlyPlayingVideoRef = { current: null as HTMLVideoElement | null };
 
-function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isArticleOpen, onArticleOpenChange }: VideoPostProps) {
+function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onArticleOpenChange }: VideoPostProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -689,7 +690,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 }}
               >
                 <img
-                  src={video.creator.avatar || '/default-avatar.png'}
+                  src={'http://localhost:5000/uploads/profiles/default-profile.png'}
                   alt={video.creator.name}
                   style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}
                   className="rounded-full border border-white/20 select-none"
@@ -958,6 +959,7 @@ export default function VideoFeed() {
           const videosWithUrls = response.data.videos.map((video: any) => ({
             id: video._id,
             videoFile: `http://localhost:5000/api/videos/${video._id}/stream`,
+            thumbnail: video.thumbnail ? `http://localhost:5000/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png',
             title: video.title || 'Untitled Video',
             description: video.description || 'No description available',
             likes: video.likes || 0,

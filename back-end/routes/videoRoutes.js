@@ -31,6 +31,9 @@ router.post('/:id/bookmark', protect, bookmarkVideo);
 router.delete('/:id/bookmark', protect, removeBookmark);
 router.get('/user/bookmarks', protect, getUserBookmarks);
 router.get('/user/bookmark-collections', protect, getBookmarkCollections);
-router.post('/upload', protect, upload.single('video'), handleVideoUploadErrors, uploadVideo);
+router.post('/upload', protect, upload.fields([
+  { name: 'video', maxCount: 1 },
+  { name: 'thumbnail', maxCount: 1 }
+]), handleVideoUploadErrors, uploadVideo);
 
 export default router; 

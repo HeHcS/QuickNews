@@ -7,6 +7,13 @@ import { catchAsync } from '../utils/catchAsync.js';
 import AppError from '../utils/appError.js';
 import path from 'path';
 import fs from 'fs';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import { fileURLToPath } from 'url';
+
+// ES Module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Get videos directory
 const VIDEOS_DIR = getVideosDir();
@@ -17,6 +24,9 @@ const CACHE_KEYS = {
   CATEGORIES: 'categories:',
   VIDEO: 'video:'
 };
+
+// Set ffmpeg path
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 /**
  * Stream a specific video
@@ -636,22 +646,67 @@ export const getBookmarkCollections = async (req, res) => {
 
 // Upload video
 export const uploadVideo = catchAsync(async (req, res, next) => {
-  if (!req.file) {
+  // Check for uploaded video file using upload.fields
+  if (!req.files || !req.files.video || !req.files.video[0]) {
     return next(new AppError('No video file uploaded', 400));
   }
 
   // Convert absolute path to relative path for storage
-  const relativePath = path.basename(req.file.path);
-  console.log('File upload path:', {
-    original: req.file.path,
-    relative: relativePath
+  const videoRelativePath = path.basename(req.files.video[0].path);
+  const videoFullPath = req.files.video[0].path;
+  
+  // Handle thumbnail path
+  let thumbnailPath;
+  
+  if (req.files && req.files.thumbnail && req.files.thumbnail[0]) {
+    // Use uploaded thumbnail
+    thumbnailPath = path.basename(req.files.thumbnail[0].path);
+  } else {
+    // Extract first frame as thumbnail
+    const thumbnailFileName = `thumbnail-${req.user._id}-${Date.now()}.jpg`;
+    thumbnailPath = thumbnailFileName;
+    const thumbnailDir = path.join(__dirname, '../uploads/thumbnails');
+    const thumbnailFullPath = path.join(thumbnailDir, thumbnailFileName);
+    
+    // Ensure thumbnails directory exists
+    if (!fs.existsSync(thumbnailDir)) {
+      fs.mkdirSync(thumbnailDir, { recursive: true });
+    }
+    
+    // Extract first frame using FFmpeg
+    try {
+      await new Promise((resolve, reject) => {
+        ffmpeg(videoFullPath)
+          .screenshots({
+            timestamps: ['00:00:01'], // Take screenshot at 1 second to avoid black frames
+            filename: thumbnailFileName,
+            folder: thumbnailDir,
+            size: '720x?', // 720p width, maintain aspect ratio
+          })
+          .on('end', resolve)
+          .on('error', (err) => {
+            console.error('Error extracting thumbnail:', err);
+            reject(err);
+          });
+      });
+    } catch (error) {
+      console.error('Failed to extract thumbnail:', error);
+      // Use default thumbnail if extraction fails
+      thumbnailPath = 'default-thumbnail.png';
+    }
+  }
+
+  console.log('File upload paths:', {
+    video: videoRelativePath,
+    thumbnail: thumbnailPath
   });
 
   const videoData = {
     title: req.body.title,
     description: req.body.description,
-    creator: req.user._id, // Assuming user is attached by auth middleware
-    videoFile: relativePath, // Store only the filename, not the full path
+    creator: req.user._id,
+    videoFile: videoRelativePath,
+    thumbnail: thumbnailPath,
     categories: req.body.categories ? JSON.parse(req.body.categories) : [],
     tags: req.body.tags ? JSON.parse(req.body.tags) : [],
     isPublished: req.body.isPublished === 'false' ? false : true,

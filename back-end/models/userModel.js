@@ -7,6 +7,14 @@ const userSchema = new mongoose.Schema({
     required: [true, 'Name is required'],
     trim: true
   },
+  handle: {
+    type: String,
+    required: [true, 'Handle is required'],
+    unique: true,
+    trim: true,
+    lowercase: true,
+    match: [/^[a-z0-9_]{3,30}$/, 'Handle can only contain letters, numbers, and underscores, and must be between 3-30 characters']
+  },
   email: {
     type: String,
     required: [true, 'Email is required'],

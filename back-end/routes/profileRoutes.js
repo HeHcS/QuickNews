@@ -8,7 +8,8 @@ import {
   applyForCreator,
   approveCreator,
   rejectCreator,
-  manageBadges
+  manageBadges,
+  getProfileByHandle
 } from '../controllers/profileController.js';
 import { uploadProfilePicture, handleUploadErrors } from '../middleware/uploadMiddleware.js';
 
@@ -27,5 +28,11 @@ router.post('/creator-application', protect, applyForCreator);
 router.put('/:id/approve-creator', protect, restrictTo('admin'), approveCreator);
 router.put('/:id/reject-creator', protect, restrictTo('admin'), rejectCreator);
 router.put('/:id/badges', protect, restrictTo('admin'), manageBadges);
+
+router.route('/:id')
+  .get(getProfileById);
+
+router.route('/handle/:handle')
+  .get(getProfileByHandle);
 
 export default router; 

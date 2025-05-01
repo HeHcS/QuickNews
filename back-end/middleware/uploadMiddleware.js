@@ -27,17 +27,40 @@ const profileStorage = multer.diskStorage({
   }
 });
 
-// File filter for images
+// Add image file filter for thumbnails
 const imageFileFilter = (req, file, cb) => {
-  // Accept only image files
   const allowedFileTypes = /jpeg|jpg|png|gif|webp/;
   const extname = allowedFileTypes.test(path.extname(file.originalname).toLowerCase());
   const mimetype = allowedFileTypes.test(file.mimetype);
-
   if (extname && mimetype) {
     return cb(null, true);
   } else {
     cb(new Error('Only image files are allowed (jpeg, jpg, png, gif, webp)'));
+  }
+};
+
+// Custom fileFilter for both video and thumbnail fields
+const customFileFilter = (req, file, cb) => {
+  if (file.fieldname === 'video') {
+    // Only accept video files
+    const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type for video. Only MP4, WebM, and QuickTime videos are allowed.'), false);
+    }
+  } else if (file.fieldname === 'thumbnail') {
+    // Only accept image files
+    const allowedFileTypes = /jpeg|jpg|png|gif|webp/;
+    const extname = allowedFileTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedFileTypes.test(file.mimetype);
+    if (extname && mimetype) {
+      cb(null, true);
+    } else {
+      cb(new Error('Invalid file type for thumbnail. Only image files (jpeg, jpg, png, gif, webp) are allowed.'), false);
+    }
+  } else {
+    cb(new Error('Unexpected field: ' + file.fieldname), false);
   }
 };
 
@@ -65,10 +88,18 @@ export const handleUploadErrors = (err, req, res, next) => {
   next();
 };
 
-// Configure multer storage for videos
-const videoStorage = multer.diskStorage({
+// Configure multer storage for both videos and thumbnails
+const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../uploads/videos');
+    let uploadDir;
+    if (file.fieldname === 'video') {
+      uploadDir = path.join(__dirname, '../uploads/videos');
+    } else if (file.fieldname === 'thumbnail') {
+      uploadDir = path.join(__dirname, '../uploads/thumbnails');
+    } else {
+      return cb(new Error('Invalid field name'));
+    }
+    
     // Create directory if it doesn't exist
     if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
@@ -76,45 +107,34 @@ const videoStorage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // Generate unique filename with timestamp and user ID if available
     const userId = req.user?._id || 'unknown';
     const timestamp = Date.now();
-    const uniqueSuffix = timestamp + '-' + Math.round(Math.random() * 1E9);
-    // Ensure proper extension based on mimetype
-    let ext;
-    switch (file.mimetype) {
-      case 'video/mp4':
-        ext = '.mp4';
-        break;
-      case 'video/webm':
-        ext = '.webm';
-        break;
-      case 'video/quicktime':
-        ext = '.mov';
-        break;
-      default:
-        ext = '.mp4';
+    
+    if (file.fieldname === 'video') {
+      // Handle video filename
+      const uniqueSuffix = Math.round(Math.random() * 1E9);
+      let ext;
+      switch (file.mimetype) {
+        case 'video/mp4': ext = '.mp4'; break;
+        case 'video/webm': ext = '.webm'; break;
+        case 'video/quicktime': ext = '.mov'; break;
+        default: ext = '.mp4';
+      }
+      const filename = `video-${userId}-${timestamp}-${uniqueSuffix}${ext}`.replace(/\s+/g, '');
+      cb(null, filename);
+    } else if (file.fieldname === 'thumbnail') {
+      // Handle thumbnail filename
+      const ext = path.extname(file.originalname).toLowerCase();
+      const filename = `thumbnail-${userId}-${timestamp}${ext}`.replace(/\s+/g, '');
+      cb(null, filename);
     }
-    // Create filename without spaces
-    const filename = `video-${userId}-${uniqueSuffix}${ext}`.replace(/\s+/g, '');
-    cb(null, filename);
   }
 });
 
-// File filter to accept only video files
-const videoFileFilter = (req, file, cb) => {
-  const allowedTypes = ['video/mp4', 'video/webm', 'video/quicktime'];
-  if (allowedTypes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Invalid file type. Only MP4, WebM, and QuickTime videos are allowed.'), false);
-  }
-};
-
-// Configure multer upload for videos
+// Configure multer upload for videos and thumbnails
 const upload = multer({
-  storage: videoStorage,
-  fileFilter: videoFileFilter,
+  storage: storage,
+  fileFilter: customFileFilter,
   limits: {
     fileSize: 100 * 1024 * 1024, // 100MB file size limit
   }

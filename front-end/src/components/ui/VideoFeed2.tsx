@@ -6,7 +6,9 @@ import TopNav from './TopNav';
 import BottomNav from './BottomNav';
 import Comments from './Comments';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import axios from 'axios';
 import ArticlePopup from './ArticlePopup';
+import { APP_CATEGORIES } from '../../config/categories';
 import Link from 'next/link';
 import { Heart, Share2, Play, Pause, Volume2, VolumeX, ChevronDown, ChevronUp, MessageCircle, NewspaperIcon, XIcon, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
@@ -15,25 +17,25 @@ import Image from 'next/image';
 const doubleTapHeartStyle = `
   @keyframes double-tap-heart {
     0% {
-      transform: scale(0) translateY(0);
+      transform: scale(0);
       opacity: 0;
     }
     15% {
-      transform: scale(1.2) translateY(0);
+      transform: scale(1.2);
       opacity: 1;
     }
     30% {
-      transform: scale(1) translateY(0);
+      transform: scale(1);
       opacity: 1;
     }
     100% {
-      transform: scale(1.5) translateY(-50px);
+      transform: scale(1.5);
       opacity: 0;
     }
   }
   
   .animate-double-tap-heart {
-    animation: double-tap-heart 1.2s cubic-bezier(0.17, 0.89, 0.32, 1.49) forwards;
+    animation: double-tap-heart 1s cubic-bezier(0.17, 0.89, 0.32, 1.49) forwards;
     animation-delay: var(--animation-delay, 0s);
   }
 `;
@@ -47,27 +49,34 @@ if (typeof document !== 'undefined') {
 
 interface Video {
   id: string;
-  videoFile: string;  // This will be the full URL from the database
+  videoFile: string;
+  thumbnail: string;
   title: string;
+  description: string;
+  likes: number;
+  comments: number;
   creator: {
     name: string;
     avatar?: string;
   };
-  likes: number;
-  comments: number;
   headline?: {
     text: string;
     source: string;
     timestamp: string;
   };
-  captions?: {
-    title: string;
-    text: string;
+}
+
+interface Comment {
+  _id: string;
+  user: {
+    name: string;
+    profilePicture: string;
   };
-  article?: {
-    title: string;
-    content: string;
-  };
+  text: string;
+  likes: number;
+  createdAt: string;
+  repliesCount: number;
+  timestamp: string;
 }
 
 interface VideoPostProps {
@@ -80,12 +89,16 @@ interface VideoPostProps {
 }
 
 interface VideoFeed2Props {
-  videos: Video[];
   creatorHandle?: string;
   onClose?: () => void;
 }
 
-// Helper function to calculate responsive sizes
+// Helper functions for responsive sizing
+const clamp = (min: number, val: number, max: number): number => {
+  return Math.min(Math.max(min, val), max);
+};
+
+// Calculate responsive sizes based on viewport height (700px reference)
 const getResponsiveSize = (baseSize: number): string => {
   // Convert base size to vh units (700px = 100vh reference)
   const vhSize = (baseSize / 700) * 100;
@@ -93,55 +106,10 @@ const getResponsiveSize = (baseSize: number): string => {
   return `max(${baseSize * 0.5}px, ${vhSize}vh)`;
 };
 
-const generateVideoContent = (videoFile: string | undefined) => {
-  if (!videoFile) {
-    return {
-      title: 'Content Unavailable',
-      text: 'This content is currently unavailable.'
-    };
-  }
-
-  const filename = videoFile.split('/').pop()?.replace('.mp4', '') || '';
-  
-  // Define content templates based on video source
-  const contentTemplates: { [key: string]: { title: string; text: string } } = {
-    'bbcnewsvideo1': {
-      title: 'Breaking: Major Climate Agreement Reached',
-      text: 'World leaders have reached a historic agreement on climate change at the latest UN summit. The groundbreaking deal includes ambitious targets for reducing global emissions and establishes a new framework for international cooperation. This marks a significant step forward in the global fight against climate change, with nations committing to specific actionable goals.'
-    },
-    'dailymailvideo1': {
-      title: 'Exclusive: Inside the Royal Family\'s New Initiative',
-      text: 'The Royal Family has launched a groundbreaking environmental campaign, setting new standards for sustainable living. This exclusive report takes you behind the scenes of their latest green initiative, showing how the monarchy is adapting to modern environmental challenges.'
-    },
-    'dailymailvideo2': {
-      title: 'Celebrity Charity Event Raises Millions',
-      text: 'Hollywood\'s biggest stars came together for an unprecedented charity gala, raising millions for global education initiatives. The star-studded event featured exclusive performances and surprise announcements that will impact communities worldwide.'
-    },
-    'dylanpagevideo1': {
-      title: 'Behind the Scenes: A Day in Tech Valley',
-      text: 'Join me as I explore the latest innovations in Silicon Valley. From cutting-edge startups to tech giants, we\'re getting an exclusive look at what\'s shaping our digital future. The energy here is incredible, and the innovations we\'re seeing are going to change the way we live and work.'
-    },
-    'dylanpagevideo2': {
-      title: 'The Future of Electric Vehicles: What\'s Next?',
-      text: 'Taking a deep dive into the revolutionary changes happening in the electric vehicle industry. From new battery technology to autonomous driving features, we\'re exploring how these innovations are reshaping transportation for the next generation.'
-    }
-  };
-
-  return contentTemplates[filename] || {
-    title: 'Latest Update',
-    text: 'Stay tuned for more exciting content and updates.'
-  };
-};
-
-// Helper function for responsive sizing based on viewport height
-const clamp = (min: number, val: number, max: number): number => {
-  return Math.min(Math.max(min, val), max);
-};
-
 // Add this at the top of the file, after imports
 const currentlyPlayingVideoRef = { current: null as HTMLVideoElement | null };
 
-function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isArticleOpen, onArticleOpenChange }: VideoPostProps) {
+function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onArticleOpenChange }: VideoPostProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
@@ -160,7 +128,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
   const { ref, inView } = useInView({
     threshold: 0.7,
   });
-  
+
   // Double tap to like states
   const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
   const [doubleTapPosition, setDoubleTapPosition] = useState({ x: 0, y: 0 });
@@ -179,6 +147,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
   const dragStartX = useRef<number>(0);
   const dragStartTime = useRef<number>(0);
 
+  // Add a new state to track the last action for the play/pause button
+  const [lastAction, setLastAction] = useState<'pause' | 'play' | null>(null);
+
   // Reset states when video changes or becomes inactive
   useEffect(() => {
     setIsLiked(false);
@@ -193,9 +164,6 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
     }
   }, [video.id, isActive]);
 
-  // Generate content based on video file
-  const videoContent = generateVideoContent(video?.videoFile);
-
   // Early return if video data is invalid
   if (!video || !video.videoFile) {
     return (
@@ -207,6 +175,39 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       </div>
     );
   }
+
+  // Handle video playback based on visibility
+  useEffect(() => {
+    if (!videoRef.current) return;
+    
+    const videoElement = videoRef.current;
+
+    if (isActive && inView) {
+      // If there's another video playing, pause it first
+      if (currentlyPlayingVideoRef.current && currentlyPlayingVideoRef.current !== videoElement) {
+        currentlyPlayingVideoRef.current.pause();
+      }
+      
+      // Set this as the currently playing video
+      currentlyPlayingVideoRef.current = videoElement;
+      
+      // Force autoplay when active and in view
+      const playPromise = videoElement.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => setIsPlaying(true))
+          .catch(() => setIsPlaying(false));
+      }
+    } else {
+      videoElement.pause();
+      setIsPlaying(false);
+      
+      // If this was the currently playing video, clear the reference
+      if (currentlyPlayingVideoRef.current === videoElement) {
+        currentlyPlayingVideoRef.current = null;
+      }
+    }
+  }, [isActive, inView]);
 
   // Force autoplay when component mounts
   useEffect(() => {
@@ -330,37 +331,34 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
   const togglePlay = (e: React.MouseEvent<HTMLDivElement>) => {
     e.stopPropagation();
     e.preventDefault();
-    
     const video = videoRef.current;
     if (!video) return;
-
-    // Clear any pending pause timeout to prevent conflicts
     if (playPauseTimeoutRef.current) {
       clearTimeout(playPauseTimeoutRef.current);
       playPauseTimeoutRef.current = null;
     }
-
     if (video.paused) {
-      // If there's another video playing, pause it first
+      // Play the video
       if (currentlyPlayingVideoRef.current && currentlyPlayingVideoRef.current !== video) {
         currentlyPlayingVideoRef.current.pause();
       }
-      
-      // Set this as the currently playing video
       currentlyPlayingVideoRef.current = video;
-      
-      // Play the video immediately
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise
           .then(() => {
             setIsPlaying(true);
-            // Add a smooth fade-out animation for the pause icon
-            setIsPlayPauseFading(true);
-            setTimeout(() => {
-              setShowPlayPause(false);
-              setIsPlayPauseFading(false);
-            }, 300); // Match this with CSS transition duration
+            setShowPlayPause(true); // Show pause icon
+            setIsPlayPauseFading(false);
+            setLastAction('play');
+            // Fade out after 350ms (was 600ms)
+            playPauseTimeoutRef.current = setTimeout(() => {
+              setIsPlayPauseFading(true);
+              fadeTimeoutRef.current = setTimeout(() => {
+                setShowPlayPause(false);
+                setIsPlayPauseFading(false);
+              }, 200); // Fade duration 200ms (was 400ms)
+            }, 350);
           })
           .catch(() => setIsPlaying(false));
       }
@@ -368,23 +366,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       // Pause the video immediately
       video.pause();
       setIsPlaying(false);
-      
-      // Show pause button when paused
+      setShowPlayPause(true); // Show pause icon
       setIsPlayPauseFading(false);
-      setShowPlayPause(true);
-      
-      // Start fade out after 1 second
-      playPauseTimeoutRef.current = setTimeout(() => {
-        setIsPlayPauseFading(true);
-        
-        // Hide button after fade animation completes
-        fadeTimeoutRef.current = setTimeout(() => {
-          setShowPlayPause(false);
-          setIsPlayPauseFading(false);
-        }, 500); // Match this with CSS transition duration
-      }, 1000);
-      
-      // If this was the currently playing video, clear the reference
+      setLastAction('pause');
       if (currentlyPlayingVideoRef.current === video) {
         currentlyPlayingVideoRef.current = null;
       }
@@ -443,114 +427,17 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       : 'bg-[#29ABE2] text-white scale-100 rotate-0';
   };
 
-  // Update isPlaying state based on video's actual playing state
+  // Cleanup timeouts on unmount
   useEffect(() => {
-    if (!videoRef.current) return;
-    
-    const videoElement = videoRef.current;
-    
-    const handlePlay = () => setIsPlaying(true);
-    const handlePause = () => setIsPlaying(false);
-    
-    videoElement.addEventListener('play', handlePlay);
-    videoElement.addEventListener('pause', handlePause);
-    
     return () => {
-      videoElement.removeEventListener('play', handlePlay);
-      videoElement.removeEventListener('pause', handlePause);
+      if (playPauseTimeoutRef.current) {
+        clearTimeout(playPauseTimeoutRef.current);
+      }
+      if (fadeTimeoutRef.current) {
+        clearTimeout(fadeTimeoutRef.current);
+      }
     };
   }, []);
-
-  // Handle seeking
-  const handleSeek = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!videoRef.current || !seekbarRef.current) return;
-    
-    const videoElement = videoRef.current;
-    const seekBar = seekbarRef.current;
-    const rect = seekBar.getBoundingClientRect();
-    const seekPosition = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    
-    // Set the video time based on the seek position
-    videoElement.currentTime = seekPosition * videoElement.duration;
-  };
-
-  // Handle seekbar drag start
-  const handleSeekbarDragStart = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!videoRef.current || !seekbarRef.current) return;
-    
-    setIsSeekbarDragging(true);
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    dragStartX.current = clientX;
-    dragStartTime.current = videoRef.current.currentTime;
-    
-    e.stopPropagation(); // Prevent other event handlers from firing
-  };
-
-  // Handle seekbar drag
-  const handleSeekbarDrag = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isSeekbarDragging || !videoRef.current || !seekbarRef.current) return;
-    
-    const videoElement = videoRef.current;
-    const seekBar = seekbarRef.current;
-    const rect = seekBar.getBoundingClientRect();
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    
-    // Calculate the drag distance and convert to time
-    const dragDistance = clientX - dragStartX.current;
-    const seekBarWidth = rect.width;
-    const timeChange = (dragDistance / seekBarWidth) * videoElement.duration;
-    
-    // Set the new time, ensuring it stays within bounds
-    const newTime = Math.max(0, Math.min(videoElement.duration, dragStartTime.current + timeChange));
-    videoElement.currentTime = newTime;
-    
-    e.stopPropagation(); // Prevent other event handlers from firing
-  };
-
-  // Handle seekbar drag end
-  const handleSeekbarDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
-    setIsSeekbarDragging(false);
-    e.stopPropagation(); // Prevent other event handlers from firing
-  };
-
-  // Add event listeners for seekbar dragging
-  useEffect(() => {
-    if (!seekbarRef.current) return;
-    
-    const seekbar = seekbarRef.current;
-    
-    const handleMouseMove = (e: MouseEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDrag(e as unknown as React.MouseEvent);
-    };
-    
-    const handleMouseUp = (e: MouseEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDragEnd(e as unknown as React.MouseEvent);
-    };
-    
-    const handleTouchMove = (e: TouchEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDrag(e as unknown as React.TouchEvent);
-    };
-    
-    const handleTouchEnd = (e: TouchEvent) => {
-      if (!isSeekbarDragging) return;
-      handleSeekbarDragEnd(e as unknown as React.TouchEvent);
-    };
-    
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('touchmove', handleTouchMove);
-    document.addEventListener('touchend', handleTouchEnd);
-    
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('touchmove', handleTouchMove);
-      document.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [isSeekbarDragging]);
 
   // Update video time and duration
   useEffect(() => {
@@ -574,6 +461,81 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
       videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
     };
   }, []);
+
+  // Update the seekbar related code
+  const handleSeekbarDragStart = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!videoRef.current || !seekbarRef.current) return;
+    
+    e.stopPropagation(); // Prevent video play/pause
+    e.preventDefault(); // Prevent text selection
+    
+    setIsSeekbarDragging(true);
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    dragStartX.current = clientX;
+    dragStartTime.current = videoRef.current.currentTime;
+  };
+
+  const handleSeekbarDrag = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isSeekbarDragging || !videoRef.current || !seekbarRef.current) return;
+    
+    e.stopPropagation();
+    e.preventDefault();
+    
+    const videoElement = videoRef.current;
+    const seekBar = seekbarRef.current;
+    const rect = seekBar.getBoundingClientRect();
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    
+    // Calculate seek position as a percentage
+    const seekPosition = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    
+    // Set video time directly based on position
+    videoElement.currentTime = seekPosition * videoElement.duration;
+  };
+
+  const handleSeekbarDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
+    if (!isSeekbarDragging) return;
+    
+    e.stopPropagation();
+    e.preventDefault();
+    
+    setIsSeekbarDragging(false);
+  };
+
+  // Update the useEffect for event listeners
+  useEffect(() => {
+    if (!isSeekbarDragging) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      handleSeekbarDrag(e as unknown as React.MouseEvent);
+    };
+    
+    const handleMouseUp = (e: MouseEvent) => {
+      handleSeekbarDragEnd(e as unknown as React.MouseEvent);
+    };
+    
+    const handleTouchMove = (e: TouchEvent) => {
+      handleSeekbarDrag(e as unknown as React.TouchEvent);
+    };
+    
+    const handleTouchEnd = (e: TouchEvent) => {
+      handleSeekbarDragEnd(e as unknown as React.TouchEvent);
+    };
+    
+    // Add event listeners
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+    
+    return () => {
+      // Clean up event listeners
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [isSeekbarDragging]);
 
   return (
     <div 
@@ -617,25 +579,26 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
           </div>
         </div>
       )}
-
+      
       {/* Interactive Elements Layer - High z-index */}
       <div className="absolute inset-0 z-50">
         {/* Play/Pause Button - Center */}
         {showPlayPause && (
-        <div 
-          className="absolute inset-0 flex items-center justify-center"
+          <div 
+            className="absolute inset-0 flex items-center justify-center"
           >
             <div 
               className={`w-16 h-16 flex items-center justify-center rounded-full bg-black/40 text-white transition-all duration-500 ease-in-out transform ${
                 isPlayPauseFading ? 'opacity-0 scale-90' : 'opacity-100 scale-100'
               }`}
             >
+              {/* Swap icons: Show Pause when playing (fade out), Play when paused (always on) */}
               {isPlaying ? (
                 <Pause size={32} />
               ) : (
-              <Play size={32} />
-          )}
-        </div>
+                <Play size={32} />
+              )}
+            </div>
           </div>
         )}
 
@@ -649,7 +612,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
           }} 
           className="absolute left-0 right-[10px] p-4 text-white"
         >
-          <h2 style={{ fontSize: getResponsiveSize(20) }} className="font-bold mb-0 select-none mt-[2%] max-w-[75%]">{videoContent.title}</h2>
+          <h2 style={{ fontSize: getResponsiveSize(20) }} className="font-bold mb-0 select-none mt-[2%] max-w-[75%]">
+            {video.title}
+          </h2>
           <div className="relative">
             <div 
               className={`overflow-hidden transition-all duration-500 ease-in-out transform ${
@@ -667,7 +632,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 WebkitLineClamp: isCaptionsExpanded ? 'unset' : '2',
                 WebkitBoxOrient: 'vertical',
                 overflow: 'hidden'
-              }} className="select-none max-w-[85%] text-gray-300">{videoContent.text}</p>
+              }} className="select-none max-w-[85%] text-gray-300">
+                {video.description}
+              </p>
             </div>
             <div className="relative mt-1 bg-transparent">
               <button 
@@ -710,12 +677,13 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
           </div>
         </div>
 
+        {/* Creator Info and Article Button */}
         <div style={{ bottom: getResponsiveSize(70) }} className="absolute left-0 right-0 p-2.5 text-white">
           <div className="flex items-center justify-between interactive-element">
             <div className="flex items-center gap-2">
               <Link
                 href={`/@${video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
-                className="hover:opacity-90 transition-opacity z-30"
+                className="hover:opacity-90 transition-opacity"
                 onClick={(e) => {
                   e.stopPropagation();
                   localStorage.setItem('lastVideoId', video.id);
@@ -730,7 +698,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
               </Link>
               <Link
                 href={`/@${video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
-                className="hover:opacity-90 transition-opacity z-30 block"
+                className="hover:opacity-90 transition-opacity block"
                 onClick={(e) => {
                   e.stopPropagation();
                   localStorage.setItem('lastVideoId', video.id);
@@ -748,13 +716,13 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                   <h4 style={{ fontSize: getResponsiveSize(11) }} className="text-white/70 leading-tight hover:text-[#29ABE2] transition-colors select-none">@{video.creator.name.toLowerCase().replace(/\s+/g, '')}</h4>
                 </div>
               </Link>
-              <button
+              <button 
                 onClick={toggleFollow}
                 style={{ 
                   padding: `${getResponsiveSize(4)} ${getResponsiveSize(10)}`,
                   fontSize: getResponsiveSize(12)
                 }}
-                className={`pointer-events-auto font-medium rounded-full hover:opacity-80 transition-all duration-300 flex items-center gap-1 relative ${getAnimationClasses()}`}
+                className={`font-medium rounded-full hover:opacity-80 transition-all duration-300 flex items-center gap-1 relative ${getAnimationClasses()}`}
               >
                 <div className="flex items-center gap-1">
                   {isFollowing ? (
@@ -763,8 +731,8 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                       <svg style={{ width: getResponsiveSize(12), height: getResponsiveSize(12) }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="transform transition-transform duration-300">
                         <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                       </svg>
-                  </>
-                ) : (
+                    </>
+                  ) : (
                     'Follow'
                   )}
                 </div>
@@ -782,11 +750,11 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
                 e.preventDefault();
                 onArticleOpenChange(true);
               }}
-              style={{
+              style={{ 
                 padding: `${getResponsiveSize(4)} ${getResponsiveSize(10)}`,
                 fontSize: getResponsiveSize(12)
               }}
-              className="pointer-events-auto bg-[#29ABE2] text-white font-medium rounded-full hover:bg-[#29ABE2]/80 transition-colors"
+              className="bg-[#29ABE2] text-white font-medium rounded-full hover:bg-[#29ABE2]/80 transition-colors"
             >
               Full Article
             </button>
@@ -796,7 +764,6 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
           <div 
             ref={seekbarRef}
             className="mt-2 h-1 bg-black/30 rounded-full cursor-pointer select-none group"
-            onClick={handleSeek}
             onMouseDown={handleSeekbarDragStart}
             onTouchStart={handleSeekbarDragStart}
           >
@@ -817,8 +784,6 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
             top: getResponsiveSize(450),
             position: 'absolute',
             transform: 'translateY(-50%)',
-            zIndex: 30,
-            pointerEvents: 'auto',
           }}
           className="flex flex-col"
         >
@@ -833,13 +798,13 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
               className={`flex items-center justify-center rounded-full ${
                 isLiked ? 'text-[#29ABE2]' : 'text-white'
               }`}
-                >
-                  <div style={{ width: getResponsiveSize(28), height: getResponsiveSize(28) }}>
-                    {isLiked ? 
-                      <Heart className="text-[#29ABE2] fill-[#29ABE2] scale-125 transform transition-transform duration-300 w-full h-full" /> : 
-                      <Heart className="text-white fill-white transform transition-transform duration-300 w-full h-full" />
-                    }
-                  </div>
+            >
+              <div style={{ width: getResponsiveSize(28), height: getResponsiveSize(28) }}>
+                {isLiked ? 
+                  <Heart className="text-[#29ABE2] fill-[#29ABE2] scale-125 transform transition-transform duration-300 w-full h-full" /> : 
+                  <Heart className="text-white fill-white transform transition-transform duration-300 w-full h-full" />
+                }
+              </div>
             </button>
             <span style={{ fontSize: getResponsiveSize(12) }} className="text-white mt-1 font-medium">{isLiked ? video.likes + 1 : video.likes}</span>
           </div>
@@ -852,19 +817,19 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
               }}
               style={{ width: getResponsiveSize(38), height: getResponsiveSize(38) }}
               className="flex items-center justify-center rounded-full text-white hover:opacity-80 transition-opacity"
-                >
-                  <div style={{ width: getResponsiveSize(28), height: getResponsiveSize(28) }}>
+            >
+              <div style={{ width: getResponsiveSize(28), height: getResponsiveSize(28) }}>
                 <Image 
                   src="/assets/Vector-12.png"
                   alt="Comments"
-                  width={32}
-                  height={32}
+                  width={28}
+                  height={28}
                   className="w-full h-full transform transition-transform duration-300"
                 />
               </div>
             </button>
             <span style={{ fontSize: getResponsiveSize(12) }} className="text-white mt-1 font-medium">{video.comments}</span>
-                  </div>
+          </div>
           <div className="flex flex-col items-center">
             <button 
               onClick={(e) => {
@@ -886,13 +851,167 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, isAr
   );
 }
 
-export default function VideoFeed2({ videos: initialVideos, creatorHandle, onClose }: VideoFeed2Props) {
-  const [videos, setVideos] = useState(initialVideos);
+export default function VideoFeed2({ creatorHandle, onClose }: VideoFeed2Props) {
   const [activeVideoIndex, setActiveVideoIndex] = useState(0);
-  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
-  const [isArticleOpen, setIsArticleOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [hasOpenComments, setHasOpenComments] = useState(false);
+  const [hasOpenArticle, setHasOpenArticle] = useState(false);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [videoComments, setVideoComments] = useState<{ [key: string]: Comment[] }>({});
+  const [isLoadingComments, setIsLoadingComments] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isSeekbarDragging, setIsSeekbarDragging] = useState(false);
+    
+  const pathname = usePathname();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const feedRef = useRef<HTMLDivElement>(null);
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  
+  // Determine current category based on pathname
+  const currentCategory = pathname === '/' || pathname === '/foryou' ? 'For You' : 
+    pathname.slice(1).charAt(0).toUpperCase() + pathname.slice(2);
+
+  // Add function to fetch comments
+  const fetchComments = async (videoId: string) => {
+    try {
+      setIsLoadingComments(true);
+      const response = await axios.get('http://localhost:5000/api/engagement/comments', {
+        params: {
+          contentId: videoId,
+          contentType: 'Video',
+          limit: 10
+        }
+      });
+
+      if (response.data && response.data.comments) {
+        setVideoComments(prev => ({
+          ...prev,
+          [videoId]: response.data.comments.map((comment: any) => ({
+            _id: comment._id,
+            user: {
+              name: comment.user.name,
+              profilePicture: comment.user.profilePicture || '/default-avatar.png'
+            },
+            text: comment.text,
+            likes: comment.likes || 0,
+            createdAt: new Date(comment.createdAt).toLocaleString(),
+            repliesCount: comment.repliesCount || 0,
+            timestamp: comment.timestamp
+          }))
+        }));
+      }
+    } catch (err) {
+      console.error('Error fetching comments:', err);
+    } finally {
+      setIsLoadingComments(false);
+    }
+  };
+
+  // Add effect to fetch comments when a video becomes active
+  useEffect(() => {
+    if (videos[activeVideoIndex] && hasOpenComments) {
+      fetchComments(videos[activeVideoIndex].id);
+    }
+  }, [activeVideoIndex, hasOpenComments]);
+
+  useEffect(() => {
+    const fetchVideos = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        let response;
+        if (creatorHandle) {
+          // Remove @ symbol if present and convert to lowercase
+          const handle = creatorHandle.replace('@', '').toLowerCase();
+          
+          // First fetch the creator's profile by handle
+          const profileResponse = await axios.get(`http://localhost:5000/api/profile/handle/${handle}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          });
+
+          if (!profileResponse.data?.data?.profile) {
+            throw new Error('Creator profile not found');
+          }
+
+          const creatorId = profileResponse.data.data.profile._id;
+          
+          // Then fetch videos using the creator's MongoDB ID
+          response = await axios.get(`http://localhost:5000/api/videos/creator/${creatorId}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          });
+        } else {
+          response = await axios.get('http://localhost:5000/api/videos/feed', {
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json'
+            }
+          });
+        }
+
+        if (response.data && Array.isArray(response.data.videos)) {
+          const videosWithUrls = response.data.videos.map((video: any) => ({
+            id: video._id,
+            videoFile: `http://localhost:5000/api/videos/${video._id}/stream`,
+            thumbnail: video.thumbnail ? `http://localhost:5000/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png',
+            title: video.title || 'Untitled Video',
+            description: video.description || 'No description available',
+            likes: video.likes || 0,
+            comments: video.comments || 0,
+            creator: {
+              name: video.creator?.name || 'Anonymous',
+              avatar: video.creator?.profilePicture
+            },
+            headline: video.headline
+          }));
+          setVideos(videosWithUrls);
+        } else {
+          throw new Error('Invalid response format from server');
+        }
+      } catch (err: any) {
+        let errorMessage = creatorHandle 
+          ? `Failed to fetch videos for creator ${creatorHandle}`
+          : 'Failed to fetch videos';
+        
+        if (err.response) {
+          errorMessage = err.response.data?.message || `Server error: ${err.response.status}`;
+        } else if (err.request) {
+          errorMessage = 'Could not connect to server. Please check if the server is running.';
+        } else {
+          errorMessage = err.message || 'An unexpected error occurred';
+        }
+        setError(errorMessage);
+        console.error('Error fetching videos:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchVideos();
+  }, [creatorHandle]); // Add creatorHandle as dependency to refetch when it changes
+
+  // Handle back button click
+  const handleBackClick = () => {
+    if (onClose) {
+      // If we have an onClose handler, use it to close the popup
+      onClose();
+    } else if (creatorHandle) {
+      // Navigate back to the creator page
+      router.push(`/@${creatorHandle}`);
+    } else {
+      // Otherwise, use the default back behavior
+      router.back();
+    }
+  };
 
   // Add this effect to pause all videos when component mounts
   useEffect(() => {
@@ -915,34 +1034,57 @@ export default function VideoFeed2({ videos: initialVideos, creatorHandle, onClo
     };
   }, [videos]);
 
-  // Add this effect to handle article data
+  // Add debug log for videos state changes
   useEffect(() => {
-    // If the active video has no article data, generate some sample data
-    if (videos[activeVideoIndex] && !videos[activeVideoIndex].article) {
-      const videoContent = generateVideoContent(videos[activeVideoIndex].videoFile);
-      
-      // Create a deep copy of the videos array
-      const updatedVideos = [...videos];
-      
-      // Add article data to the active video
-      updatedVideos[activeVideoIndex] = {
-        ...updatedVideos[activeVideoIndex],
-        article: {
-          title: videoContent.title,
-          content: videoContent.text + "\n\n" + 
-                  "This is a sample article generated for demonstration purposes. " +
-                  "In a real application, this would be fetched from a database or API."
+    console.log('Videos state updated:', videos);
+  }, [videos]);
+
+  // Add debug log for loading state changes
+  useEffect(() => {
+    console.log('Loading state:', isLoading);
+  }, [isLoading]);
+
+  useEffect(() => {
+    const videoId = searchParams.get('v');
+    if (videoId) {
+      const videoIndex = videos.findIndex(v => v.id === videoId);
+      if (videoIndex !== -1) {
+        setCurrentVideoIndex(videoIndex);
+        const videoElement = document.getElementById(`video-${videoId}`);
+        if (videoElement) {
+          videoElement.scrollIntoView({ behavior: 'auto' });
         }
-      };
-      
-      // Update the videos array in state
-      setVideos(updatedVideos);
-      console.log("Generated article data for video:", updatedVideos[activeVideoIndex].id);
+      }
     }
+  }, [searchParams, videos]);
+
+  // Update video time and duration for the active video
+  useEffect(() => {
+    if (!videos[activeVideoIndex]) return;
+    
+    // Find the video element for the active video
+    const videoElement = document.querySelector(`#video-${videos[activeVideoIndex].id} video`) as HTMLVideoElement;
+    if (!videoElement) return;
+    
+    const handleTimeUpdate = () => {
+      setCurrentTime(videoElement.currentTime);
+    };
+    
+    const handleLoadedMetadata = () => {
+      setDuration(videoElement.duration);
+    };
+    
+    videoElement.addEventListener('timeupdate', handleTimeUpdate);
+    videoElement.addEventListener('loadedmetadata', handleLoadedMetadata);
+    
+    return () => {
+      videoElement.removeEventListener('timeupdate', handleTimeUpdate);
+      videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata);
+    };
   }, [activeVideoIndex, videos]);
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    if (isCommentsOpen || isArticleOpen) return;
+    if (hasOpenComments || hasOpenArticle) return;
     
     const element = e.currentTarget;
     const newIndex = Math.round(element.scrollTop / element.clientHeight);
@@ -981,28 +1123,38 @@ export default function VideoFeed2({ videos: initialVideos, creatorHandle, onClo
     }
   };
 
-  // Handle back button click
-  const handleBackClick = () => {
-    if (onClose) {
-      // If we have an onClose handler, use it to close the popup
-      onClose();
-    } else if (creatorHandle) {
-      // Navigate back to the creator page
-      router.push(`/@${creatorHandle}`);
-    } else {
-      // Otherwise, use the default back behavior
-      router.back();
-    }
-  };
+  if (isLoading) {
+    return (
+      <div className="relative h-full flex items-center justify-center bg-black">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-white mx-auto mb-4"></div>
+          <p>Loading videos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="relative h-full flex items-center justify-center bg-black">
+        <div className="text-white text-center p-4">
+          <p className="text-red-500 mb-2">⚠️ Error loading videos</p>
+          <p className="text-sm opacity-80">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-4 px-4 py-2 bg-[#29ABE2] rounded-full hover:bg-[#29ABE2]/80 transition-colors"
+          >
+            Try Again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div 
-      ref={containerRef}
-      className="relative h-full w-full overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
-      onScroll={handleScroll}
-    >
+    <div className="h-screen flex flex-col">
       {/* Back Button - Only visible when ArticlePopup is closed */}
-      {!isArticleOpen && (
+      {!hasOpenArticle && (
         <div className="absolute top-4 left-4 z-[100] transition-opacity duration-300">
           <button
             onClick={handleBackClick}
@@ -1013,52 +1165,56 @@ export default function VideoFeed2({ videos: initialVideos, creatorHandle, onClo
           </button>
         </div>
       )}
-      
-      {videos.length === 0 ? (
-        <div className="h-full flex items-center justify-center bg-black text-white text-center p-4">
-          <p>No videos available</p>
-        </div>
-      ) : (
-        videos.map((video, index) => (
-          <div
-            key={video.id}
-            className="relative w-full h-full snap-start"
-          >
-            <VideoPost
-              video={video}
-              isActive={index === activeVideoIndex}
-              isCommentsOpen={isCommentsOpen}
-              onCommentsOpenChange={setIsCommentsOpen}
-              isArticleOpen={isArticleOpen}
-              onArticleOpenChange={setIsArticleOpen}
-            />
+      {/* Video Feed */}
+      <div 
+        className="w-full flex-1 overflow-y-scroll snap-y snap-mandatory scrollbar-hide relative"
+        onScroll={handleScroll}
+      >
+        {videos.length === 0 ? (
+          <div className="h-full flex items-center justify-center bg-black text-white text-center p-4">
+            <p>No videos available for this category</p>
           </div>
-        ))
-      )}
-
+        ) : (
+          videos.map((video, index) => (
+            <div
+              key={video.id}
+              id={`video-${video.id}`}
+              className={`relative w-full h-full snap-start ${index === currentVideoIndex ? 'z-10' : 'z-0'}`}
+            >
+              <VideoPost
+                video={video}
+                isActive={index === activeVideoIndex}
+                isCommentsOpen={hasOpenComments}
+                onCommentsOpenChange={setHasOpenComments}
+                isArticleOpen={hasOpenArticle}
+                onArticleOpenChange={setHasOpenArticle}
+              />
+            </div>
+          ))
+        )}
+      </div>
+      {/* Bottom Navigation */}
+      <div className="w-full mx-auto z-50">
+        <BottomNav />
+      </div>
       {/* Comments Component */}
       {videos[activeVideoIndex] && (
         <Comments 
-          isOpen={isCommentsOpen}
-          onClose={() => setIsCommentsOpen(false)}
-          comments={[]}
+          isOpen={hasOpenComments}
+          onClose={() => setHasOpenComments(false)}
+          comments={videoComments[videos[activeVideoIndex].id] || []}
+          isLoading={isLoadingComments}
         />
       )}
-
       {/* Article Popup */}
-      {videos[activeVideoIndex] && videos[activeVideoIndex].article && (
+      {videos[activeVideoIndex] && (
         <ArticlePopup 
-          isOpen={isArticleOpen}
-          onClose={() => setIsArticleOpen(false)}
-          title={videos[activeVideoIndex].article?.title || ''}
-          content={videos[activeVideoIndex].article?.content || ''}
+          isOpen={hasOpenArticle}
+          onClose={() => setHasOpenArticle(false)}
+          title={videos[activeVideoIndex].title}
+          content={videos[activeVideoIndex].description}
         />
       )}
-
-      {/* Bottom Navigation */}
-      <div style={{ pointerEvents: isCommentsOpen || isArticleOpen ? 'none' : 'auto' }}>
-        <BottomNav />
-      </div>
     </div>
   );
 } 

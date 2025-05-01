@@ -3,6 +3,8 @@ import mongoose from 'mongoose';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { catchAsync } from '../utils/catchAsync.js';
+import AppError from '../utils/appError.js';
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -49,6 +51,27 @@ export const getProfileById = async (req, res) => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
+/**
+ * @desc    Get user profile by handle
+ * @route   GET /api/profile/handle/:handle
+ * @access  Public
+ */
+export const getProfileByHandle = catchAsync(async (req, res, next) => {
+  const profile = await User.findOne({ handle: req.params.handle })
+    .select('-password -refreshToken -passwordChangedAt -passwordResetToken -passwordResetExpires');
+
+  if (!profile) {
+    return next(new AppError('No profile found with that handle', 404));
+  }
+
+  res.status(200).json({
+    status: 'success',
+    data: {
+      profile
+    }
+  });
+});
 
 /**
  * @desc    Update user profile

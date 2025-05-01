@@ -51,6 +51,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         // If user doesn't exist, create a new one
         user = new User({
           name: profile.displayName,
+          handle: `google_${profile.id}`,
           email: profile.emails[0].value,
           googleId: profile.id,
           profilePicture: profile.photos[0].value,

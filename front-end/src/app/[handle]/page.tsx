@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import BottomNav from '@/components/ui/BottomNav';
 import { Menu, Play, UserSquare, Bookmark, Heart, MessageCircle, Share2, ArrowLeft } from 'lucide-react';
 import Comments from '@/components/ui/Comments';
 import ArticlePopup from '@/components/ui/ArticlePopup';
 import VideoFeed2 from '@/components/ui/VideoFeed2';
+import axios from 'axios';
 
 // Calculate responsive sizes based on viewport height (700px reference)
 const getResponsiveSize = (baseSize: number): string => {
@@ -30,161 +31,20 @@ const scrollbarHideStyles = `
   }
 `;
 
-interface Post {
-  id: string;
+// Add this interface near the top of the file with other interfaces
+interface VideoData {
+  _id: string;
+  id?: string;
   title: string;
-  imageUrl: string;
   description: string;
+  thumbnail: string;
+  videoFile: string;
+  creator: {
+    _id: string;
+    name: string;
+    profilePicture?: string;
+  };
 }
-
-// Sample videos data
-const sampleVideos = [
-  {
-    id: '1',
-    videoFile: '/VidAssets/bbcnewsvideo1.mp4',
-    title: 'Breaking: Latest News Update 📰',
-    creator: {
-      name: 'BBC News',
-      avatar: 'https://picsum.photos/seed/bbc1/100/100',
-    },
-    likes: 1234,
-    comments: 89
-  },
-  {
-    id: '2',
-    videoFile: '/VidAssets/dailymailvideo1.mp4',
-    title: 'Daily Mail Latest 📰',
-    creator: {
-      name: 'Daily Mail',
-      avatar: 'https://picsum.photos/seed/dailymail1/100/100',
-    },
-    likes: 2345,
-    comments: 156
-  },
-  {
-    id: '3',
-    videoFile: '/VidAssets/dylanpagevideo1.mp4',
-    title: 'Dylan Page Latest 🎬',
-    creator: {
-      name: 'Dylan Page',
-      avatar: 'https://picsum.photos/seed/dylan1/100/100',
-    },
-    likes: 3456,
-    comments: 234
-  },
-  {
-    id: '4',
-    videoFile: '/VidAssets/dailymailvideo2.mp4',
-    title: 'Daily Mail Update 📽️',
-    creator: {
-      name: 'Daily Mail',
-      avatar: 'https://picsum.photos/seed/dailymail2/100/100',
-    },
-    likes: 4567,
-    comments: 278
-  },
-  {
-    id: '5',
-    videoFile: '/VidAssets/dylanpagevideo2.mp4',
-    title: 'Dylan Page Update 🎥',
-    creator: {
-      name: 'Dylan Page',
-      avatar: 'https://picsum.photos/seed/dylan2/100/100',
-    },
-    likes: 5678,
-    comments: 342
-  },
-  {
-    id: '6',
-    videoFile: '/VidAssets/bbcnewsvideo1.mp4',
-    title: 'BBC News Update 📺',
-    creator: {
-      name: 'BBC News',
-      avatar: 'https://picsum.photos/seed/bbc2/100/100',
-    },
-    likes: 6789,
-    comments: 456
-  }
-];
-
-// Sample comments data
-const sampleComments = [
-  {
-    id: '1',
-    user: {
-      name: 'Alice Chen',
-      avatar: 'https://picsum.photos/seed/alice/100/100',
-    },
-    text: 'This is amazing! The cinematography is on another level 🔥 Been waiting for content like this!',
-    likes: 842,
-    timestamp: '2h ago',
-    replies: [
-      {
-        id: '1-reply-1',
-        user: { name: 'Bob Smith', avatar: 'https://picsum.photos/seed/bob/100/100' },
-        text: 'Totally agree! The lighting is perfect!',
-        likes: 45,
-        timestamp: '1h ago'
-      }
-    ]
-  },
-  {
-    id: '2',
-    user: {
-      name: 'Michael Brown',
-      avatar: 'https://picsum.photos/seed/michael/100/100',
-    },
-    text: 'First time seeing your content and I\'m already hooked! 🎬 Instant follow!',
-    likes: 423,
-    timestamp: '1h ago',
-    replies: [
-      {
-        id: '2-reply-1',
-        user: { name: 'Sophie Taylor', avatar: 'https://picsum.photos/seed/sophie/100/100' },
-        text: 'Welcome to the community! You\'ll love it here!',
-        likes: 32,
-        timestamp: '45m ago'
-      }
-    ]
-  }
-];
-
-// Sample article content
-const sampleArticles = [
-  {
-    id: '1',
-    title: 'Breaking: Major Climate Agreement Reached at Global Summit',
-    content: `NATO leadership has issued a grave warning to its member states, calling for immediate preparation for potential "wartime scenarios". This extraordinary alert comes as a direct response to heightened international tensions and concerning rhetoric about World War III.
-
-The alliance is intensifying its preparedness protocols, emphasizing the need for member nations to strengthen their defensive capabilities. This strategic shift reflects the organization's assessment of current global security risks and potential conflict scenarios.
-
-Recent statements from Russia have contributed to the mounting tension, prompting NATO to take these unprecedented measures. The situation marks a critical point in international relations, with military readiness becoming increasingly paramount.`,
-    source: 'BBC News',
-    date: '12 November 2024'
-  },
-  {
-    id: '2',
-    title: 'Exclusive: Inside the Royal Family\'s New Initiative',
-    content: `The Royal Family has launched a groundbreaking environmental campaign, setting new standards for sustainable living. This exclusive report takes you behind the scenes of their latest green initiative, showing how the monarchy is adapting to modern environmental challenges.
-
-The initiative, which was announced last month, aims to reduce the carbon footprint of all royal residences by 50% within the next decade. This ambitious target has been met with both praise and skepticism from environmental experts.
-
-Prince William and Princess Kate have been leading the charge, visiting various sustainable projects across the UK and meeting with environmental activists to discuss the best approaches to combating climate change.`,
-    source: 'Daily Mail',
-    date: '10 November 2024'
-  },
-  {
-    id: '3',
-    title: 'Behind the Scenes: A Day in Tech Valley',
-    content: `Join me as I explore the latest innovations in Silicon Valley. From cutting-edge startups to tech giants, we're getting an exclusive look at what's shaping our digital future. The energy here is incredible, and the innovations we're seeing are going to change the way we live and work.
-
-The first stop on our tour is a revolutionary AI company that's developing algorithms capable of predicting market trends with unprecedented accuracy. Their technology has already attracted billions in investment and is being used by major financial institutions worldwide.
-
-Next, we visit a biotech startup that's working on gene-editing techniques that could potentially cure genetic diseases. The ethical implications are significant, but the potential benefits to humanity are enormous.`,
-    source: 'Dylan Page',
-    date: '8 November 2024'
-  }
-];
 
 export default function CreatorPage() {
   const params = useParams();
@@ -192,189 +52,76 @@ export default function CreatorPage() {
   const handle = (params?.handle as string)?.replace('@', '') || '';
   const [activeTab, setActiveTab] = useState('posts');
   const [selectedVideo, setSelectedVideo] = useState<any>(null);
-  const [selectedArticle, setSelectedArticle] = useState<any>(null);
-  const [isArticleOpen, setIsArticleOpen] = useState(false);
-  const [isCommentsOpen, setIsCommentsOpen] = useState(false);
-  const [isLiked, setIsLiked] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isCaptionsExpanded, setIsCaptionsExpanded] = useState(false);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  
-  // Mock user data based on handle
-  const userData = {
-    name: handle.charAt(0).toUpperCase() + handle.slice(1),
+  const [videos, setVideos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [userData, setUserData] = useState({
+    name: '',
     handle: handle,
-    avatar: `https://picsum.photos/seed/${handle}/200/200`,
+    avatar: `http://localhost:5000/uploads/profiles/default-profile.png`,
     bio: 'Feed your daily addiction with the biggest stories from news, politics, showbiz and everything else.',
     stats: {
       posts: 134,
       followers: '20.8m',
       following: 208
     }
-  };
-
-  const samplePosts = [
-    {
-      id: '1',
-      title: 'Trump refuses to rule out communist as his trade war sparks despair',
-      imageUrl: '/images/post1.jpg',
-      description: 'Latest political developments...'
-    },
-    {
-      id: '2',
-      title: 'Music legend goes completely unnoticed as he travels by train to UK gig',
-      imageUrl: '/images/post2.jpg',
-      description: 'Entertainment news...'
-    },
-    {
-      id: '3',
-      title: 'Teacher who "joked" about having sex with pupil\'s mum is sacked',
-      imageUrl: '/images/post3.jpg',
-      description: 'Education controversy...'
-    },
-    {
-      id: '4',
-      title: '10-year-old boy tragically drowns after SUV-seized foster mother',
-      imageUrl: '/images/post4.jpg',
-      description: 'Breaking news...'
-    },
-    {
-      id: '5',
-      title: 'Tourist who went missing on her first camping trip is rescued',
-      imageUrl: '/images/post5.jpg',
-      description: 'Rescue operation success...'
-    },
-    {
-      id: '6',
-      title: 'Why experts say this city could mean you only have five minutes left to live',
-      imageUrl: '/images/post6.jpg',
-      description: 'Environmental alert...'
-    }
-  ];
+  });
 
   const handleVideoClick = (video: any) => {
-    setSelectedVideo({
-      ...video,
-      url: video.videoFile // Map videoFile to url for VideoFeed2
-    });
+    // Store the current video ID in localStorage before navigating
+    setSelectedVideo(video);
   };
 
   const resetVideoState = () => {
     setSelectedVideo(null);
-    setIsPlaying(false);
-    setIsCaptionsExpanded(false);
-    setIsCommentsOpen(false);
-    setIsArticleOpen(false);
   };
 
-  const togglePlay = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (videoRef.current) {
-      if (videoRef.current.paused) {
-        videoRef.current.play();
-        setIsPlaying(true);
-      } else {
-        videoRef.current.pause();
-        setIsPlaying(false);
+  useEffect(() => {
+    const fetchVideos = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const handleLower = handle.toLowerCase();
+        const profileRes = await axios.get(`http://localhost:5000/api/profile/handle/${handleLower}`);
+        const profile = profileRes.data?.data?.profile;
+        const creatorId = profile?._id;
+        if (!creatorId) throw new Error('Creator not found');
+        
+        // Update user data with actual name from profile
+        setUserData(prev => ({
+          ...prev,
+          name: profile.name || '',
+          avatar: profile.profilePicture ? `http://localhost:5000/uploads/profiles/${profile.profilePicture}` : prev.avatar,
+          bio: profile.bio || prev.bio
+        }));
+
+        const videosRes = await axios.get(`http://localhost:5000/api/videos/creator/${creatorId}`);
+        // Process videos to include full URLs for thumbnails
+        const processedVideos = (videosRes.data?.videos || []).map((video: VideoData) => ({
+          ...video,
+          thumbnail: video.thumbnail ? `http://localhost:5000/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png'
+        }));
+        setVideos(processedVideos);
+      } catch (err) {
+        setError('Failed to load videos');
+      } finally {
+        setLoading(false);
       }
-    }
-  };
+    };
+    fetchVideos();
+  }, [handle]);
 
-  const toggleLike = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsLiked(!isLiked);
-  };
-
-  const toggleComments = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsCommentsOpen(!isCommentsOpen);
-  };
-
-  const toggleCaptions = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setIsCaptionsExpanded(!isCaptionsExpanded);
-  };
-
-  const openArticle = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Find a matching article based on the video title or creator
-    const article = sampleArticles.find(a => 
-      a.title.includes(selectedVideo.title.split(':')[0]) || 
-      a.source === selectedVideo.creator.name
-    ) || sampleArticles[0];
-    
-    setSelectedArticle(article);
-    setIsArticleOpen(true);
-  };
-
-  const handleBackToFeed = () => {
-    // Store the current video ID in localStorage before going back
-    if (selectedVideo) {
-      localStorage.setItem('lastVideoId', selectedVideo.id);
-    }
-    
-    // Get the lastVideoId from localStorage
-    const lastVideoId = localStorage.getItem('lastVideoId');
-    
-    // Navigate back to the main videofeed with the video ID as a query parameter
-    if (lastVideoId) {
-      router.push(`/foryou?v=${lastVideoId}`);
-    } else {
-      router.push('/foryou');
-    }
-  };
-
-  const renderContent = () => {
-    if (selectedVideo) {
-      return (
-        <>
-          <div className="absolute inset-0 bg-black z-10">
-            <VideoFeed2 
-              videos={[selectedVideo]} 
-              creatorHandle={typeof handle === 'string' ? handle : undefined} 
-              onClose={resetVideoState}
-            />
-          </div>
-        </>
-      );
-    }
-    
-    switch (activeTab) {
-      case 'posts':
-        return (
-          <div className="grid grid-cols-3 gap-1 mt-1 bg-black p-1 pb-16">
-            {sampleVideos.map((video, index) => (
-              <div 
-                key={index} 
-                className="aspect-square relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer"
-                onClick={() => handleVideoClick(video)}
-              >
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Play size={24} className="text-white opacity-70" />
-                </div>
-                <div style={{ padding: getResponsiveSize(8) }} className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent">
-                  <p style={{ fontSize: getResponsiveSize(10) }} className="text-white truncate">{video.title}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        );
-      case 'likes':
-        return (
-          <div className="w-full mt-12 text-center text-gray-500">
-            There are no videos here
-          </div>
-        );
-      case 'comments':
-        return (
-          <div className="w-full mt-12 text-center text-gray-500">
-            There are no videos here
-          </div>
-        );
-      default:
-        return null;
-    }
-  };
+  if (selectedVideo) {
+    // Only show the creator feed (VideoFeed2) when a video is selected
+    return (
+      <div className="h-screen w-screen bg-black text-white">
+        <VideoFeed2 creatorHandle={handle} onClose={resetVideoState} />
+        <div className="fixed bottom-0 left-0 right-0 z-50">
+          <BottomNav />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-screen bg-black text-white overflow-y-auto">
@@ -386,7 +133,7 @@ export default function CreatorPage() {
           <div style={{ height: getResponsiveSize(192) }} className="bg-blue-900 rounded-b-3xl relative z-0">
             {/* Back Button in Blue Box */}
             <button
-              onClick={handleBackToFeed}
+              onClick={() => router.back()}
               className="absolute top-4 left-4 z-[5] bg-black/30 rounded-full p-2 hover:bg-black/50 transition-colors flex items-center justify-center"
               style={{ 
                 width: getResponsiveSize(40), 
@@ -508,7 +255,47 @@ export default function CreatorPage() {
         </div>
 
         {/* Content Area */}
-        {renderContent()}
+        {activeTab === 'posts' ? (
+          loading ? (
+            <div className="h-40 flex items-center justify-center text-gray-400">Loading...</div>
+          ) : error ? (
+            <div className="h-40 flex items-center justify-center text-red-500">{error}</div>
+          ) : videos.length === 0 ? (
+            <div className="h-40 flex items-center justify-center text-gray-400">No videos found for this creator.</div>
+          ) : (
+            <div className="grid grid-cols-3 gap-1 mt-1 bg-black p-1 pb-16">
+              {videos.map((video, index) => (
+                <div 
+                  key={video._id || video.id || index} 
+                  className="aspect-square relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer"
+                  onClick={() => handleVideoClick(video)}
+                >
+                  {/* Video Thumbnail */}
+                  {video.thumbnail && (
+                    <img
+                      src={video.thumbnail}
+                      alt={video.title}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      style={{ zIndex: 1 }}
+                    />
+                  )}
+                  {/* Play Icon Overlay */}
+                  <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 2 }}>
+                    <Play size={24} className="text-white opacity-70" />
+                  </div>
+                  {/* Title Overlay */}
+                  <div style={{ padding: getResponsiveSize(8), zIndex: 3 }} className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent">
+                    <p style={{ fontSize: getResponsiveSize(10) }} className="text-white truncate">{video.title}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        ) : (
+          <div className="w-full mt-12 text-center text-gray-500">
+            There are no videos here
+          </div>
+        )}
       </div>
 
       {/* Bottom Navigation - Always visible */}

@@ -9,7 +9,7 @@ import crypto from 'crypto';
 // @access  Public
 export const registerUser = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, handle, email, password } = req.body;
     
     // Check if user already exists
     const userExists = await User.findOne({ email });
@@ -24,6 +24,7 @@ export const registerUser = async (req, res, next) => {
     // Create user
     const user = await User.create({
       name,
+      handle,
       email,
       password
     });
@@ -38,6 +39,7 @@ export const registerUser = async (req, res, next) => {
         user: {
           id: user._id,
           name: user.name,
+          handle: user.handle,
           email: user.email,
           role: user.role,
           isVerified: user.isVerified
