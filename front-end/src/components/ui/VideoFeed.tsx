@@ -1336,6 +1336,27 @@ export default function VideoFeed() {
     };
   }, []);
 
+  // Add effect to handle returning to last video
+  useEffect(() => {
+    const lastVideoId = localStorage.getItem('lastVideoId');
+    if (lastVideoId && videos.length > 0) {
+      const videoIndex = videos.findIndex(v => v.id === lastVideoId);
+      if (videoIndex !== -1) {
+        setActiveVideoIndex(videoIndex);
+        // Scroll to the video
+        const feedElement = document.querySelector('.snap-mandatory');
+        if (feedElement) {
+          feedElement.scrollTo({
+            top: feedElement.clientHeight * videoIndex,
+            behavior: 'auto'
+          });
+        }
+        // Clear the stored video ID
+        localStorage.removeItem('lastVideoId');
+      }
+    }
+  }, [videos]);
+
   if (isLoading) {
     return (
       <div className="relative h-full flex items-center justify-center bg-black">

@@ -67,9 +67,9 @@ export default function CreatorPage() {
     }
   });
 
-  const handleVideoClick = (video: any) => {
-    // Store the current video ID in localStorage before navigating
+  const handleVideoClick = (video: any, index: number) => {
     setSelectedVideo(video);
+    localStorage.setItem('selectedVideoIndex', index.toString());
   };
 
   const resetVideoState = () => {
@@ -115,7 +115,11 @@ export default function CreatorPage() {
     // Only show the creator feed (VideoFeed2) when a video is selected
     return (
       <div className="h-screen w-screen bg-black text-white">
-        <VideoFeed2 creatorHandle={handle} onClose={resetVideoState} />
+        <VideoFeed2 
+          creatorHandle={handle} 
+          onClose={resetVideoState}
+          initialVideoIndex={parseInt(localStorage.getItem('selectedVideoIndex') || '0')}
+        />
         <div className="fixed bottom-0 left-0 right-0 z-50">
           <BottomNav />
         </div>
@@ -268,7 +272,7 @@ export default function CreatorPage() {
                 <div 
                   key={video._id || video.id || index} 
                   className="aspect-square relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer"
-                  onClick={() => handleVideoClick(video)}
+                  onClick={() => handleVideoClick(video, index)}
                 >
                   {/* Video Thumbnail */}
                   {video.thumbnail && (

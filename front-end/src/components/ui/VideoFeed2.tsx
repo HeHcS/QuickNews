@@ -91,6 +91,7 @@ interface VideoPostProps {
 interface VideoFeed2Props {
   creatorHandle?: string;
   onClose?: () => void;
+  initialVideoIndex?: number;
 }
 
 // Helper functions for responsive sizing
@@ -851,8 +852,8 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
   );
 }
 
-export default function VideoFeed2({ creatorHandle, onClose }: VideoFeed2Props) {
-  const [activeVideoIndex, setActiveVideoIndex] = useState(0);
+export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex = 0 }: VideoFeed2Props) {
+  const [activeVideoIndex, setActiveVideoIndex] = useState(initialVideoIndex);
   const [hasOpenComments, setHasOpenComments] = useState(false);
   const [hasOpenArticle, setHasOpenArticle] = useState(false);
   const [videos, setVideos] = useState<Video[]>([]);
@@ -1002,7 +1003,8 @@ export default function VideoFeed2({ creatorHandle, onClose }: VideoFeed2Props) 
   // Handle back button click
   const handleBackClick = () => {
     if (onClose) {
-      // If we have an onClose handler, use it to close the popup
+      // Store the current video index before closing
+      localStorage.setItem('lastVideoIndex', activeVideoIndex.toString());
       onClose();
     } else if (creatorHandle) {
       // Navigate back to the creator page
@@ -1122,6 +1124,19 @@ export default function VideoFeed2({ creatorHandle, onClose }: VideoFeed2Props) 
       }, 100); // Small delay to ensure the video is ready
     }
   };
+
+  // Scroll to initial video after videos are loaded
+  useEffect(() => {
+    if (!isLoading && videos.length > 0 && initialVideoIndex > 0) {
+      const feedElement = document.querySelector('.snap-mandatory');
+      if (feedElement) {
+        feedElement.scrollTo({
+          top: feedElement.clientHeight * initialVideoIndex,
+          behavior: 'auto'
+        });
+      }
+    }
+  }, [isLoading, videos, initialVideoIndex]);
 
   if (isLoading) {
     return (
