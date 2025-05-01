@@ -466,9 +466,10 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
   const handleSeekbarDragStart = (e: React.MouseEvent | React.TouchEvent) => {
     if (!videoRef.current || !seekbarRef.current) return;
     
-    e.stopPropagation(); // Prevent video play/pause
-    e.preventDefault(); // Prevent text selection
+    e.stopPropagation();
+    e.preventDefault();
     
+    videoRef.current.pause(); // Always pause while dragging
     setIsSeekbarDragging(true);
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     dragStartX.current = clientX;
@@ -494,10 +495,20 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
   };
 
   const handleSeekbarDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isSeekbarDragging) return;
+    if (!isSeekbarDragging || !videoRef.current) return;
     
     e.stopPropagation();
     e.preventDefault();
+    
+    const videoElement = videoRef.current;
+    
+    // Always play on release
+    const playPromise = videoElement.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(error => {
+        console.error('Error resuming playback:', error);
+      });
+    }
     
     setIsSeekbarDragging(false);
   };

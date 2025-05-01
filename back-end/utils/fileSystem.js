@@ -10,32 +10,31 @@ const __dirname = path.dirname(__filename);
  * Ensures that the profiles directory exists for storing profile pictures
  */
 export const ensureProfilesDirExists = () => {
-  const profilesDir = path.join(__dirname, '../uploads/profiles');
-  
-  if (!fs.existsSync(profilesDir)) {
-    console.log('Creating profiles upload directory...');
-    fs.mkdirSync(profilesDir, { recursive: true });
-  }
-  
-  // Create default profile image if it doesn't exist
+  const profilesDir = path.join(__dirname, '..', 'uploads', 'profiles');
   const defaultProfilePath = path.join(profilesDir, 'default-profile.png');
-  
+
+  // Create profiles directory if it doesn't exist
+  if (!fs.existsSync(profilesDir)) {
+    fs.mkdirSync(profilesDir, { recursive: true });
+    console.log('Created profiles directory');
+  }
+
+  // Copy default profile image if it doesn't exist
   if (!fs.existsSync(defaultProfilePath)) {
-    try {
-      // Copy a default profile image if available, or create an empty file
-      const defaultSourcePath = path.join(__dirname, '../assets/default-profile.png');
-      
-      if (fs.existsSync(defaultSourcePath)) {
-        fs.copyFileSync(defaultSourcePath, defaultProfilePath);
-      } else {
-        // If no default image, create an empty file (this is a placeholder and should be replaced)
-        fs.writeFileSync(defaultProfilePath, '');
-        console.log('Warning: Created empty default profile picture. Please replace with an actual image.');
-      }
-    } catch (error) {
-      console.error('Error creating default profile picture:', error);
+    const defaultImageSource = path.join(__dirname, '..', 'assets', 'default-profile.png');
+    if (fs.existsSync(defaultImageSource)) {
+      fs.copyFileSync(defaultImageSource, defaultProfilePath);
+      console.log('Copied default profile image');
+    } else {
+      console.warn('Default profile image source not found');
     }
   }
   
   return profilesDir;
+};
+
+export const ensureDirectoryExists = (dirPath) => {
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
 }; 

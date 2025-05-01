@@ -16,12 +16,13 @@ interface NavItem {
 export default function BottomNav() {
   const router = useRouter();
   const pathname = usePathname();
-  const [activePage, setActivePage] = useState('home');
+  const [activePage, setActivePage] = useState('');
 
   useEffect(() => {
     // Update active page based on current path
-    const path = pathname.slice(1) || 'home';
-    setActivePage(path);
+    const path = pathname.slice(1);
+    const matchingItem = navItems.find(item => item.path === pathname);
+    setActivePage(matchingItem ? matchingItem.id : path || 'home');
   }, [pathname]);
 
   const navItems: NavItem[] = [
@@ -33,7 +34,6 @@ export default function BottomNav() {
   ];
 
   const handleNavigation = (path: string, id: string) => {
-    setActivePage(id);
     router.push(path);
   };
 
@@ -53,8 +53,8 @@ export default function BottomNav() {
               width: getResponsiveSize(40),
               height: getResponsiveSize(40)
             }}
-            className={`rounded-full flex items-center justify-center text-white transition-colors duration-200 ${
-              activePage === item.id ? 'bg-blue-500' : 'hover:opacity-80'
+            className={`rounded-full flex items-center justify-center text-white transition-all duration-300 ${
+              pathname === item.path ? 'bg-blue-500' : 'hover:opacity-80'
             }`}
           >
             {item.isImage ? (

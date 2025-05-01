@@ -470,6 +470,11 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
     e.stopPropagation(); // Prevent video play/pause
     e.preventDefault(); // Prevent text selection
     
+    // Store the current playing state and pause the video
+    const wasPlaying = !videoRef.current.paused;
+    setIsPlaying(wasPlaying);
+    videoRef.current.pause(); // Always pause while dragging
+    
     setIsSeekbarDragging(true);
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     dragStartX.current = clientX;
@@ -495,10 +500,20 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
   };
 
   const handleSeekbarDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isSeekbarDragging) return;
+    if (!isSeekbarDragging || !videoRef.current) return;
     
     e.stopPropagation();
     e.preventDefault();
+    
+    const videoElement = videoRef.current;
+    
+    // Resume playback
+    const playPromise = videoElement.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(error => {
+        console.error('Error resuming playback:', error);
+      });
+    }
     
     setIsSeekbarDragging(false);
   };
@@ -541,20 +556,20 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
   return (
     <div 
       ref={containerRef}
-      className="relative w-full h-full snap-start bg-black"
+      className="relative w-full h-full snap-start bg-black max-w-full"
       style={{ touchAction: 'none' }}
       onClick={handleScreenTap}
     >
       {/* Video Layer - Lowest z-index */}
-      <div className="absolute inset-0 z-0">
-        <div className="absolute inset-0">
+      <div className="absolute inset-0 z-0 max-w-full">
+        <div className="absolute inset-0 max-w-full">
           <video
             ref={videoRef}
             src={video.videoFile}
             loop
             playsInline
             autoPlay
-            className="absolute inset-0 w-full h-full object-cover bg-black"
+            className="absolute inset-0 w-full h-full object-cover bg-black max-w-full"
           />
         </div>
         {/* Bottom Gradient Overlay */}
@@ -1173,10 +1188,20 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
         <div className="absolute top-4 left-4 z-[100] transition-opacity duration-300">
           <button
             onClick={handleBackClick}
-            className="flex items-center gap-2 rounded-full bg-black/50 hover:bg-black/70 text-white transition-all duration-300 group px-4 py-2"
+            style={{
+              padding: `${getResponsiveSize(6)} ${getResponsiveSize(12)}`,
+              gap: getResponsiveSize(4)
+            }}
+            className="flex items-center rounded-full bg-black/50 hover:bg-black/70 text-white transition-all duration-300 group"
           >
-            <ArrowLeft size={24} className="text-white group-hover:scale-110 transition-transform" />
-            <span className="text-base font-medium">Back</span>
+            <ArrowLeft 
+              style={{ 
+                width: getResponsiveSize(18),
+                height: getResponsiveSize(18)
+              }} 
+              className="text-white group-hover:scale-110 transition-transform" 
+            />
+            <span style={{ fontSize: getResponsiveSize(12) }} className="font-medium">Back</span>
           </button>
         </div>
       )}

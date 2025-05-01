@@ -114,7 +114,7 @@ export default function CreatorPage() {
   if (selectedVideo) {
     // Only show the creator feed (VideoFeed2) when a video is selected
     return (
-      <div className="h-screen w-screen bg-black text-white">
+      <div className="h-screen w-full bg-black text-white">
         <VideoFeed2 
           creatorHandle={handle} 
           onClose={resetVideoState}
