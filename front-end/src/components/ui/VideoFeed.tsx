@@ -701,7 +701,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
                 }}
               >
                 <img
-                  src={'http://localhost:5000/uploads/profiles/default-profile.png'}
+                  src={video.creator.avatar ? `http://localhost:5000/uploads/profiles/${video.creator.avatar}` : 'http://localhost:5000/uploads/profiles/default-profile.png'}
                   alt={video.creator.name}
                   style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}
                   className="rounded-full border border-white/20 select-none"
