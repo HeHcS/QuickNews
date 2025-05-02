@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, Suspense } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import BottomNav from '@/components/ui/BottomNav';
 import { Menu, Play, UserSquare, Bookmark, Heart, MessageCircle, Share2, ArrowLeft } from 'lucide-react';
@@ -115,11 +115,13 @@ export default function CreatorPage() {
     // Only show the creator feed (VideoFeed2) when a video is selected
     return (
       <div className="h-screen w-full bg-black text-white">
-        <VideoFeed2 
-          creatorHandle={handle} 
-          onClose={resetVideoState}
-          initialVideoIndex={parseInt(localStorage.getItem('selectedVideoIndex') || '0')}
-        />
+        <Suspense fallback={<div>Loading...</div>}>
+          <VideoFeed2 
+            creatorHandle={handle} 
+            onClose={resetVideoState}
+            initialVideoIndex={parseInt(localStorage.getItem('selectedVideoIndex') || '0')}
+          />
+        </Suspense>
         <div className="fixed bottom-0 left-0 right-0 z-50">
           <BottomNav />
         </div>
