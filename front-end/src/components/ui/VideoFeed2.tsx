@@ -706,7 +706,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
                 }}
               >
                 <img
-                  src={video.creator.avatar ? `http://localhost:5000/uploads/profiles/${video.creator.avatar}` : 'http://localhost:5000/uploads/profiles/default-profile.png'}
+                  src={video.creator.avatar ? `https://quick-news-backend.vercel.app/uploads/profiles/${video.creator.avatar}` : 'https://quick-news-backend.vercel.app/uploads/profiles/default-profile.png'}
                   alt={video.creator.name}
                   style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}
                   className="rounded-full border border-white/20 select-none"
@@ -894,7 +894,7 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
   const fetchComments = async (videoId: string) => {
     try {
       setIsLoadingComments(true);
-      const response = await axios.get('http://localhost:5000/api/engagement/comments', {
+      const response = await axios.get('https://quick-news-backend.vercel.app/api/engagement/comments', {
         params: {
           contentId: videoId,
           contentType: 'Video',
@@ -945,7 +945,7 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
           const handle = creatorHandle.replace('@', '').toLowerCase();
           
           // First fetch the creator's profile by handle
-          const profileResponse = await axios.get(`http://localhost:5000/api/profile/handle/${handle}`, {
+          const profileResponse = await axios.get(`https://quick-news-backend.vercel.app/api/profile/handle/${handle}`, {
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
@@ -959,14 +959,14 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
           const creatorId = profileResponse.data.data.profile._id;
           
           // Then fetch videos using the creator's MongoDB ID
-          response = await axios.get(`http://localhost:5000/api/videos/creator/${creatorId}`, {
+          response = await axios.get(`https://quick-news-backend.vercel.app/api/videos/creator/${creatorId}`, {
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
             }
           });
         } else {
-          response = await axios.get('http://localhost:5000/api/videos/feed', {
+          response = await axios.get('https://quick-news-backend.vercel.app/api/videos/feed', {
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
@@ -977,8 +977,8 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
         if (response.data && Array.isArray(response.data.videos)) {
           const videosWithUrls = response.data.videos.map((video: any) => ({
             id: video._id,
-            videoFile: `http://localhost:5000/api/videos/${video._id}/stream`,
-            thumbnail: video.thumbnail ? `http://localhost:5000/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png',
+            videoFile: `https://quick-news-backend.vercel.app/api/videos/${video._id}/stream`,
+            thumbnail: video.thumbnail ? `https://quick-news-backend.vercel.app/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png',
             title: video.title || 'Untitled Video',
             description: video.description || 'No description available',
             likes: video.likes || 0,
