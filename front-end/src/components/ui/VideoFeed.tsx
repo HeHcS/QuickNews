@@ -13,40 +13,6 @@ import Link from 'next/link';
 import { Heart, Share2, Play, Pause, Volume2, VolumeX, ChevronDown, ChevronUp, MessageCircle, NewspaperIcon, XIcon, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
 
-// Add CSS for double tap heart animation
-const doubleTapHeartStyle = `
-  @keyframes double-tap-heart {
-    0% {
-      transform: scale(0);
-      opacity: 0;
-    }
-    15% {
-      transform: scale(1.2);
-      opacity: 1;
-    }
-    30% {
-      transform: scale(1);
-      opacity: 1;
-    }
-    100% {
-      transform: scale(1.5);
-      opacity: 0;
-    }
-  }
-  
-  .animate-double-tap-heart {
-    animation: double-tap-heart 1s cubic-bezier(0.17, 0.89, 0.32, 1.49) forwards;
-    animation-delay: var(--animation-delay, 0s);
-  }
-`;
-
-// Add the style to the document
-if (typeof document !== 'undefined') {
-  const styleElement = document.createElement('style');
-  styleElement.innerHTML = doubleTapHeartStyle;
-  document.head.appendChild(styleElement);
-}
-
 interface Video {
   id: string;
   videoFile: string;
@@ -108,6 +74,41 @@ const getResponsiveSize = (baseSize: number): string => {
 
 // Add this at the top of the file, after imports
 const currentlyPlayingVideoRef = { current: null as HTMLVideoElement | null };
+const wasSeekbarDragRef = { current: false };
+const isSeekbarDraggingRef = { current: false };
+
+// Add CSS for double tap heart animation
+const doubleTapHeartStyle = `
+  @keyframes double-tap-heart {
+    0% {
+      transform: scale(0);
+      opacity: 0;
+    }
+    15% {
+      transform: scale(1.2);
+      opacity: 1;
+    }
+    30% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+  }
+  
+  .animate-double-tap-heart {
+    animation: double-tap-heart 1s cubic-bezier(0.17, 0.89, 0.32, 1.49) forwards;
+    animation-delay: var(--animation-delay, 0s);
+  }
+`;
+
+if (typeof document !== 'undefined') {
+  const styleElement = document.createElement('style');
+  styleElement.innerHTML = doubleTapHeartStyle;
+  document.head.appendChild(styleElement);
+}
 
 function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onArticleOpenChange }: VideoPostProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -129,10 +130,6 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
     threshold: 0.7,
   });
 
-  // Double tap to like states
-  const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
-  const [doubleTapPosition, setDoubleTapPosition] = useState({ x: 0, y: 0 });
-  
   // Double tap detection refs
   const lastTapTimeRef = useRef<number>(0);
   const tapCountRef = useRef<number>(0);
@@ -150,6 +147,10 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
   // Add a new state to track the last action for the play/pause button
   const [lastAction, setLastAction] = useState<'pause' | 'play' | null>(null);
 
+  // Double tap heart animation state
+  const [showDoubleTapHeart, setShowDoubleTapHeart] = useState(false);
+  const [doubleTapPosition, setDoubleTapPosition] = useState({ x: 0, y: 0 });
+
   // Reset states when video changes or becomes inactive
   useEffect(() => {
     setIsLiked(false);
@@ -162,6 +163,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
     if (fadeTimeoutRef.current) {
       clearTimeout(fadeTimeoutRef.current);
     }
+    // Reset double tap heart state when video changes or becomes inactive
+    setShowDoubleTapHeart(false);
+    setDoubleTapPosition({ x: 0, y: 0 });
   }, [video.id, isActive]);
 
   // Early return if video data is invalid
@@ -277,58 +281,60 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
 
   // Handle screen tap for play/pause and double tap to like
   const handleScreenTap = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isSeekbarDragging || isSeekbarDraggingRef.current) return;
+    if (wasSeekbarDragRef.current) { wasSeekbarDragRef.current = false; return; }
+    const isSeekbarZone = e.target instanceof Element && (
+      e.target.closest('[data-seekbar-zone="true"]') !== null
+    );
+    if (isSeekbarZone) return;
     e.stopPropagation();
     e.preventDefault();
-    
-    const currentTime = Date.now();
-    const tapPosition = { x: e.clientX, y: e.clientY };
-    
-    // Check if this is a double tap (within 400ms of the last tap)
-    if (currentTime - lastTapTimeRef.current < 400) {
-      // Double tap detected - like the video
+    // Calculate tap position relative to the container
+    const rect = containerRef.current?.getBoundingClientRect();
+    const tapPosition = {
+      x: e.clientX - (rect?.left ?? 0),
+      y: e.clientY - (rect?.top ?? 0)
+    };
+    const now = Date.now();
+    if (now - lastTapTimeRef.current < 400) {
       tapCountRef.current = 0;
       isDoubleTapRef.current = true;
-      
-      // Show heart animation at tap position
+      // Show heart animation at tap position with delay and layout stability
       setDoubleTapPosition(tapPosition);
-      setShowDoubleTapHeart(true);
-      
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          setShowDoubleTapHeart(true);
+        }, 80); // Small delay for kawaii pop effect
+      });
       // Only like the video if it's not already liked
       if (!isLiked) {
         setIsLiked(true);
       }
-      
-      // Hide heart animation after 1 second
+      // Hide heart animation after 1 second + delay
       setTimeout(() => {
         setShowDoubleTapHeart(false);
-      }, 1000);
-      
-      // Don't pause the video
+      }, 1080); // 1000ms + 80ms delay
+      lastTapTimeRef.current = 0;
       return;
     }
-    
-    // First tap - start the timer
-    lastTapTimeRef.current = currentTime;
+    lastTapTimeRef.current = now;
     tapCountRef.current = 1;
-    
-    // Clear existing timeouts
     if (playPauseTimeoutRef.current) {
       clearTimeout(playPauseTimeoutRef.current);
     }
     if (fadeTimeoutRef.current) {
       clearTimeout(fadeTimeoutRef.current);
     }
-    
-    // Set a timeout to pause the video after 400ms if no second tap occurs
     setTimeout(() => {
       if (tapCountRef.current === 1) {
-        // No second tap occurred, so pause the video
-        togglePlay(e);
+        if (!wasSeekbarDragRef.current && !isSeekbarDraggingRef.current) togglePlay(e);
+        wasSeekbarDragRef.current = false;
       }
     }, 400);
   };
 
   const togglePlay = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (wasSeekbarDragRef.current || isSeekbarDraggingRef.current) { wasSeekbarDragRef.current = false; return; }
     e.stopPropagation();
     e.preventDefault();
     const video = videoRef.current;
@@ -465,12 +471,11 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
   // Update the seekbar related code
   const handleSeekbarDragStart = (e: React.MouseEvent | React.TouchEvent) => {
     if (!videoRef.current || !seekbarRef.current) return;
-    
     e.stopPropagation();
     e.preventDefault();
-    
-    videoRef.current.pause(); // Always pause while dragging
     setIsSeekbarDragging(true);
+    isSeekbarDraggingRef.current = true;
+    wasSeekbarDragRef.current = true;
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     dragStartX.current = clientX;
     dragStartTime.current = videoRef.current.currentTime;
@@ -496,21 +501,14 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
 
   const handleSeekbarDragEnd = (e: React.MouseEvent | React.TouchEvent) => {
     if (!isSeekbarDragging || !videoRef.current) return;
-    
     e.stopPropagation();
     e.preventDefault();
-    
-    const videoElement = videoRef.current;
-    
-    // Always play on release
-    const playPromise = videoElement.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(error => {
-        console.error('Error resuming playback:', error);
-      });
-    }
-    
     setIsSeekbarDragging(false);
+    // Keep play/pause disabled for 1 second after drag ends
+    setTimeout(() => {
+      isSeekbarDraggingRef.current = false;
+    }, 1000);
+    wasSeekbarDragRef.current = false;
   };
 
   // Update the useEffect for event listeners
@@ -577,7 +575,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
       
       {/* Double Tap Heart Animation - Highest z-index */}
       {showDoubleTapHeart && (
-        <div className="fixed inset-0 z-[9999] pointer-events-none">
+        <div className="absolute inset-0 z-[9999] pointer-events-none">
           <div className="absolute" style={{ left: `${doubleTapPosition.x}px`, top: `${doubleTapPosition.y}px`, transform: 'translate(-50%, -50%)' }}>
             <div className="relative">
               <div className="absolute inset-0 animate-pulse bg-[#29ABE2] rounded-full blur-xl" style={{ width: '120px', height: '120px' }} />
@@ -590,7 +588,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
           </div>
         </div>
       )}
-      
+
       {/* Interactive Elements Layer - High z-index */}
       <div className="absolute inset-0 z-50">
         {/* Play/Pause Button - Center */}
@@ -773,16 +771,61 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
           
           {/* Seek Bar - Moved here */}
           <div 
-            ref={seekbarRef}
-            className="mt-2 h-1 bg-black/30 rounded-full cursor-pointer select-none group"
-            onMouseDown={handleSeekbarDragStart}
-            onTouchStart={handleSeekbarDragStart}
+            data-seekbar-zone="true"
+            style={{ position: 'relative', width: '100%' }}
           >
+            {/* Blocker zone to prevent play/pause interaction on seekbar uwu! */}
+            <div
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: '0',
+                width: '100%',
+                height: getResponsiveSize(16), // match seekbar + a little extra for touch
+                zIndex: 20,
+                background: 'transparent',
+                pointerEvents: 'auto',
+              }}
+              onClick={e => { e.stopPropagation(); e.preventDefault(); }}
+              onMouseDown={e => { e.stopPropagation(); e.preventDefault(); }}
+              onMouseUp={e => { e.stopPropagation(); e.preventDefault(); }}
+              onTouchStart={e => { e.stopPropagation(); e.preventDefault(); }}
+              onTouchEnd={e => { e.stopPropagation(); e.preventDefault(); }}
+              onPointerDown={e => { e.stopPropagation(); e.preventDefault(); }}
+              onPointerUp={e => { e.stopPropagation(); e.preventDefault(); }}
+            />
             <div 
-              className="h-full bg-[#29ABE2]/50 rounded-full relative transition-all duration-300 ease-out select-none group-hover:bg-[#29ABE2]"
-              style={{ width: `${(currentTime / duration) * 100}%` }}
+              ref={seekbarRef}
+              className="mt-2 h-1 bg-black/30 rounded-full cursor-pointer select-none group"
+              data-seekbar="true"
+              style={{ position: 'relative', zIndex: 30, pointerEvents: 'auto' }}
+              onMouseDown={handleSeekbarDragStart}
+              onTouchStart={handleSeekbarDragStart}
+              onClick={(e) => {
+                // Prevent triggering video play/pause
+                e.stopPropagation();
+                
+                if (!videoRef.current) return;
+                
+                // Calculate seek position directly
+                const rect = e.currentTarget.getBoundingClientRect();
+                const seekPos = (e.clientX - rect.left) / rect.width;
+                const newTime = Math.max(0, Math.min(1, seekPos)) * videoRef.current.duration;
+                
+                // Set video time directly without affecting playback
+                videoRef.current.currentTime = newTime;
+              }}
             >
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#29ABE2]/50 shadow-md transition-all duration-300 ease-out transform group-hover:bg-[#29ABE2] group-hover:scale-125 select-none" />
+              <div 
+                className="h-full bg-[#29ABE2]/50 rounded-full relative transition-all duration-300 ease-out select-none group-hover:bg-[#29ABE2]"
+                style={{ width: `${(currentTime / duration) * 100}%` }}
+                data-seekbar="true"
+              >
+                <div 
+                  className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#29ABE2]/50 shadow-md transition-all duration-300 ease-out transform group-hover:bg-[#29ABE2] group-hover:scale-125 select-none" 
+                  data-seekbar="true"
+                />
+              </div>
             </div>
           </div>
         </div>

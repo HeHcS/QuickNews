@@ -109,6 +109,7 @@ const getResponsiveSize = (baseSize: number): string => {
 
 // Add this at the top of the file, after imports
 const currentlyPlayingVideoRef = { current: null as HTMLVideoElement | null };
+const isSeekbarDraggingRef = { current: false };
 
 function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onArticleOpenChange }: VideoPostProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -278,6 +279,17 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
 
   // Handle screen tap for play/pause and double tap to like
   const handleScreenTap = (e: React.MouseEvent<HTMLDivElement>) => {
+    // If we're dragging the seekbar or just finished, don't respond to general screen taps
+    if (isSeekbarDragging || isSeekbarDraggingRef.current) return;
+    
+    // Check if the click is on the seekbar or its child elements
+    // This prevents the screen tap handler from interfering with seekbar interactions
+    const isSeekbarClick = e.target instanceof Element && (
+      e.target.closest('[data-seekbar="true"]') !== null
+    );
+    
+    if (isSeekbarClick) return;
+    
     e.stopPropagation();
     e.preventDefault();
     
@@ -324,12 +336,13 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
     setTimeout(() => {
       if (tapCountRef.current === 1) {
         // No second tap occurred, so pause the video
-        togglePlay(e);
+        if (!isSeekbarDraggingRef.current) togglePlay(e);
       }
     }, 400);
   };
 
   const togglePlay = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (isSeekbarDraggingRef.current) return;
     e.stopPropagation();
     e.preventDefault();
     const video = videoRef.current;
@@ -470,12 +483,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
     e.stopPropagation(); // Prevent video play/pause
     e.preventDefault(); // Prevent text selection
     
-    // Store the current playing state and pause the video
-    const wasPlaying = !videoRef.current.paused;
-    setIsPlaying(wasPlaying);
-    videoRef.current.pause(); // Always pause while dragging
-    
+    // No longer pausing the video during drag
     setIsSeekbarDragging(true);
+    isSeekbarDraggingRef.current = true;
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     dragStartX.current = clientX;
     dragStartTime.current = videoRef.current.currentTime;
@@ -505,17 +515,26 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
     e.stopPropagation();
     e.preventDefault();
     
-    const videoElement = videoRef.current;
-    
-    // Resume playback
-    const playPromise = videoElement.play();
-    if (playPromise !== undefined) {
-      playPromise.catch(error => {
-        console.error('Error resuming playback:', error);
-      });
-    }
-    
+    // Simply end the dragging state, no need to play the video since it's already playing
     setIsSeekbarDragging(false);
+    // Keep play/pause disabled for 1 second after drag ends
+    setTimeout(() => {
+      isSeekbarDraggingRef.current = false;
+    }, 1000);
+  };
+
+  // Prevent seekbar clicks from triggering video play/pause
+  const handleSeekbarClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (!videoRef.current || !seekbarRef.current) return;
+    
+    const seekBar = seekbarRef.current;
+    const rect = seekBar.getBoundingClientRect();
+    const seekPosition = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    
+    // Set video time directly
+    videoRef.current.currentTime = seekPosition * videoRef.current.duration;
   };
 
   // Update the useEffect for event listeners
@@ -776,18 +795,37 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
             </button>
           </div>
           
-          {/* Seek Bar - Moved here */}
+          {/* Seek Bar - Improved for better touch/click handling */}
           <div 
             ref={seekbarRef}
             className="mt-2 h-1 bg-black/30 rounded-full cursor-pointer select-none group"
+            data-seekbar="true"
             onMouseDown={handleSeekbarDragStart}
             onTouchStart={handleSeekbarDragStart}
+            onClick={(e) => {
+              // Prevent triggering video play/pause
+              e.stopPropagation();
+              
+              if (!videoRef.current) return;
+              
+              // Calculate seek position directly
+              const rect = e.currentTarget.getBoundingClientRect();
+              const seekPos = (e.clientX - rect.left) / rect.width;
+              const newTime = Math.max(0, Math.min(1, seekPos)) * videoRef.current.duration;
+              
+              // Set video time directly without affecting playback
+              videoRef.current.currentTime = newTime;
+            }}
           >
             <div 
               className="h-full bg-[#29ABE2]/50 rounded-full relative transition-all duration-300 ease-out select-none group-hover:bg-[#29ABE2]"
               style={{ width: `${(currentTime / duration) * 100}%` }}
+              data-seekbar="true"
             >
-              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#29ABE2]/50 shadow-md transition-all duration-300 ease-out transform group-hover:bg-[#29ABE2] group-hover:scale-125 select-none" />
+              <div 
+                className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-[#29ABE2]/50 shadow-md transition-all duration-300 ease-out transform group-hover:bg-[#29ABE2] group-hover:scale-125 select-none" 
+                data-seekbar="true"
+              />
             </div>
           </div>
         </div>
