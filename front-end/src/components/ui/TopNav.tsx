@@ -19,8 +19,7 @@ const categories = [
   { name: 'Politics', path: '/politics' },
   { name: 'For You', path: '/' },
   { name: 'Tech', path: '/tech' },
-  { name: 'Business', path: '/business' },
-  { name: 'Followed', path: '/following' }
+  { name: 'Business', path: '/business' }
 ];
 
 export default function TopNav() {
@@ -49,21 +48,21 @@ export default function TopNav() {
             {/* Menu Icon */}
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              style={{ width: getResponsiveSize(24), height: getResponsiveSize(24) }}
+              style={{ width: getResponsiveSize(29), height: getResponsiveSize(29) }}
               className="flex items-center justify-center text-white hover:text-white/80 transition-colors select-none"
             >
-              <Menu style={{ width: getResponsiveSize(18), height: getResponsiveSize(18) }} strokeWidth={2.5} className="transform transition-transform duration-300 hover:scale-110" />
+              <Menu style={{ width: getResponsiveSize(23), height: getResponsiveSize(23) }} strokeWidth={2.5} className="transform transition-transform duration-300 hover:scale-110" />
             </button>
 
             {/* Categories */}
-            <div style={{ gap: getResponsiveSize(1), maxWidth: getResponsiveSize(280) }} className="flex overflow-x-auto scrollbar-hide items-center bg-black/30 backdrop-blur-sm rounded-full px-1 py-0.5 select-none">
+            <div style={{ gap: getResponsiveSize(2), maxWidth: getResponsiveSize(283) }} className="flex overflow-x-auto scrollbar-hide items-center bg-black/30 backdrop-blur-sm rounded-full px-1 py-0.5 select-none">
               {categories.map((category) => (
                 <button
                   key={category.name}
                   onClick={() => handleCategoryClick(category)}
                   style={{ 
-                    padding: `${getResponsiveSize(3)} ${getResponsiveSize(5)}`,
-                    fontSize: getResponsiveSize(7)
+                    padding: `${getResponsiveSize(4)} ${getResponsiveSize(6)}`,
+                    fontSize: getResponsiveSize(8)
                   }}
                   className={`font-medium rounded-full whitespace-nowrap transition-colors select-none
                     ${activeCategory === category.name
@@ -80,8 +79,8 @@ export default function TopNav() {
             <button 
               onClick={() => router.push('/create')}
               style={{ 
-                padding: `${getResponsiveSize(3)} ${getResponsiveSize(7)}`,
-                fontSize: getResponsiveSize(8)
+                padding: `${getResponsiveSize(4)} ${getResponsiveSize(8)}`,
+                fontSize: getResponsiveSize(9)
               }}
               className="bg-[#29ABE2] text-white font-medium rounded-full hover:bg-[#29ABE2]/80 transition-colors select-none"
             >

@@ -780,6 +780,14 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
                         style={{ width: getResponsiveSize(18), height: getResponsiveSize(18), display: 'inline-block', verticalAlign: 'middle' }}
                       />
                     </span>
+                    {/* Follow button next to username */}
+                    <button
+                      onClick={toggleFollow}
+                      style={{ padding: `${getResponsiveSize(4)} ${getResponsiveSize(10)}`, fontSize: getResponsiveSize(12), marginLeft: 8 }}
+                      className={`font-medium rounded-full hover:opacity-80 transition-all duration-300 flex items-center gap-1 ${isFollowing ? 'bg-white/20 text-white border border-white/30' : 'bg-[#29ABE2] text-white'}`}
+                    >
+                      {isFollowing ? 'Followed' : 'Follow'}
+                    </button>
                   </h3>
                 </div>
               </Link>
