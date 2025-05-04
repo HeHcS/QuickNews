@@ -672,7 +672,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
           <h2 style={{ fontSize: getResponsiveSize(20) }} className="font-bold mb-0 select-none mt-[2%] max-w-[75%]">
             {video.title}
             {/* Badge appears after the title text, even if it wraps to the next line */}
-            <span style={{ marginLeft: 8, verticalAlign: 'middle' }}>
+            <span style={{ marginLeft: 8, verticalAlign: 'middle', marginTop: -11, display: 'inline-block' }}>
               <img
                 src="/assets/QuickNewsverifiedbadge.png"
                 alt="QuickNews Verified Badge"
@@ -1510,10 +1510,6 @@ export default function VideoFeed() {
       className="relative h-full flex flex-col items-center"
     >
       <TopNav />
-      {/* Overlay to block feed interaction when overlays are open */}
-      {hasOpenComments && (
-        <div className="fixed inset-0 z-[99999] bg-black/30" style={{ pointerEvents: 'auto' }} />
-      )}
       {/* Video Feed */}
       <div 
         ref={feedRef}
