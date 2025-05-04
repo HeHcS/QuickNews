@@ -927,7 +927,6 @@ export default function VideoFeed() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const feedRef = useRef<HTMLDivElement>(null);
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
   const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
   const touchStartY = useRef<number | null>(null);
   const dragTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -1098,7 +1097,7 @@ export default function VideoFeed() {
     if (videoId) {
       const videoIndex = videos.findIndex(v => v.id === videoId);
       if (videoIndex !== -1) {
-        setCurrentVideoIndex(videoIndex);
+        setActiveVideoIndex(videoIndex);
         const videoElement = document.getElementById(`video-${videoId}`);
         if (videoElement) {
           videoElement.scrollIntoView({ behavior: 'auto' });
@@ -1134,8 +1133,11 @@ export default function VideoFeed() {
     };
   }, [activeVideoIndex, videos]);
 
+  const isProgrammaticScroll = useRef(false);
+
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     if (hasOpenComments || hasOpenArticle) return;
+    if (isProgrammaticScroll.current) return;
     
     const element = e.currentTarget;
     const newIndex = Math.round(element.scrollTop / element.clientHeight);
@@ -1209,174 +1211,110 @@ export default function VideoFeed() {
     }
   };
 
+  // --- Touch event helpers for swipe-to-scroll kawaii! ---
+  // Helper to scroll to a video by index
+  const scrollToVideo = (index: number) => {
+    const feedElement = feedRef.current;
+    if (feedElement) {
+      feedElement.scrollTo({
+        top: feedElement.clientHeight * index,
+        behavior: 'smooth',
+      });
+    }
+  };
+
+  // Replace handleTouchStart, handleTouchMove, handleTouchEnd with kawaii swipe logic!
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY2, setTouchStartY2] = useState<number | null>(null);
+  const [swipeDirection, setSwipeDirection] = useState<'none' | 'horizontal' | 'vertical'>('none');
+  const swipeHandledRef = useRef(false);
+
   const handleTouchStart = (e: React.TouchEvent) => {
+    console.log('[DEBUG] handleTouchStart fired', e.touches[0].clientX, e.touches[0].clientY);
     if (hasOpenComments || hasOpenArticle) return;
-    
-    // Store both X and Y coordinates
-    setTouchStart(e.touches[0].clientX);
-    touchStartY.current = e.touches[0].clientY;
+    setTouchStartX(e.touches[0].clientX);
+    setTouchStartY2(e.touches[0].clientY);
     setIsDragging(true);
-    setIsScrolling(false); // Reset scrolling state on new touch
+    setIsScrolling(false);
+    setSwipeDirection('none');
+    swipeHandledRef.current = false;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    console.log('[DEBUG] handleTouchMove fired', e.touches[0].clientX, e.touches[0].clientY);
     if (!isDragging || hasOpenComments || hasOpenArticle) return;
-    
+    if (swipeHandledRef.current) return; // Only allow one swipe per gesture
     const currentX = e.touches[0].clientX;
     const currentY = e.touches[0].clientY;
-    
-    // Calculate vertical and horizontal movement
-    const verticalMovement = Math.abs(currentY - (touchStartY.current || 0));
-    const horizontalMovement = Math.abs(currentX - (touchStart || 0));
-    
-    // If vertical movement is greater than horizontal, consider it a scroll
-    if (verticalMovement > horizontalMovement && !isScrolling) {
-      setIsScrolling(true);
-      setIsDragging(false);
-      return;
-    }
-    
-    // Clear any existing timeout
-    if (dragTimeout.current) {
-      clearTimeout(dragTimeout.current);
-    }
-
-    // Set a new timeout to reset the drag if held too long
-    dragTimeout.current = setTimeout(() => {
-      setIsDragging(false);
-      setDragOffset(0);
-      setTouchStart(null);
-      touchStartY.current = null;
-    }, 300); // Reduced timeout for better responsiveness
-    
-    // Calculate and set drag offset with a maximum limit
-    const maxOffset = window.innerWidth * 0.3; // Limit drag to 30% of screen width
-    const newOffset = currentX - (touchStart || 0);
-    setDragOffset(Math.max(-maxOffset, Math.min(maxOffset, newOffset)));
-  };
-
-  const handleTouchEnd = () => {
-    if (!isDragging || hasOpenComments || hasOpenArticle || isScrolling) {
-      // Reset states if conditions aren't met
-      setIsDragging(false);
-      setDragOffset(0);
-      setTouchStart(null);
-      touchStartY.current = null;
-      return;
-    }
-
-    // Clear the drag timeout
-    if (dragTimeout.current) {
-      clearTimeout(dragTimeout.current);
-      dragTimeout.current = null;
-    }
-
-    const threshold = 50;
-    const currentIndex = categories.indexOf(currentCategory);
-    let newIndex = currentIndex;
-
-    if (Math.abs(dragOffset) > threshold) {
-      if (dragOffset > 0 && currentIndex > 0) {
-        newIndex = currentIndex - 1;
-      } else if (dragOffset < 0 && currentIndex < categories.length - 1) {
-        newIndex = currentIndex + 1;
+    if (touchStartX === null || touchStartY2 === null) return;
+    const dx = currentX - touchStartX;
+    const dy = currentY - touchStartY2;
+    // Determine swipe direction if not set
+    if (swipeDirection === 'none') {
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+        setSwipeDirection('horizontal');
+      } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
+        setSwipeDirection('vertical');
       }
     }
-
-    handleCategoryChange(newIndex);
-
-    // Reset states with a small delay to allow for smooth transition
-    setTimeout(() => {
-      setIsDragging(false);
-      setDragOffset(0);
-      setTouchStart(null);
-      touchStartY.current = null;
-    }, 50);
-  };
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (hasOpenComments || hasOpenArticle) return;
-    
-    setTouchStart(e.clientX);
-    touchStartY.current = e.clientY;
-    setIsDragging(true);
-    setIsScrolling(false); // Reset scrolling state on new mouse down
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || hasOpenComments || hasOpenArticle) return;
-    
-    const currentX = e.clientX;
-    const currentY = e.clientY;
-    
-    // Calculate vertical and horizontal movement
-    const verticalMovement = Math.abs(currentY - (touchStartY.current || 0));
-    const horizontalMovement = Math.abs(currentX - (touchStart || 0));
-    
-    // If vertical movement is greater than horizontal, consider it a scroll
-    if (verticalMovement > horizontalMovement && !isScrolling) {
-      setIsScrolling(true);
-      setIsDragging(false);
-      return;
+    // Horizontal swipe: category change (existing logic)
+    if (swipeDirection === 'horizontal') {
+      if (dragTimeout.current) clearTimeout(dragTimeout.current);
+      dragTimeout.current = setTimeout(() => {
+        setIsDragging(false);
+        setDragOffset(0);
+        setTouchStart(null);
+        setTouchStartX(null);
+        setTouchStartY2(null);
+        touchStartY.current = null;
+      }, 300);
+      const maxOffsetHorizontal = window.innerWidth * 0.3;
+      const newOffsetHorizontal = currentX - (touchStartX || 0);
+      setDragOffset(Math.max(-maxOffsetHorizontal, Math.min(maxOffsetHorizontal, newOffsetHorizontal)));
     }
-
-    // Clear any existing timeout
-    if (dragTimeout.current) {
-      clearTimeout(dragTimeout.current);
+    // Vertical swipe: video scroll kawaii~
+    if (swipeDirection === 'vertical') {
+      e.preventDefault();
+      const threshold = 50;
+      if (Math.abs(dy) > threshold) {
+        let newIndex = activeVideoIndex;
+        if (dy > 0 && activeVideoIndex > 0) {
+          newIndex = activeVideoIndex - 1;
+        } else if (dy < 0 && activeVideoIndex < videos.length - 1) {
+          newIndex = activeVideoIndex + 1;
+        }
+        if (newIndex !== activeVideoIndex) {
+          swipeHandledRef.current = true;
+          setActiveVideoIndex(newIndex);
+          isProgrammaticScroll.current = true;
+          setTimeout(() => {
+            document.getElementById(`video-${newIndex}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => { isProgrammaticScroll.current = false; }, 400);
+          }, 0);
+        }
+        // Do NOT reset drag state here! Only do it on touchend.
+      }
     }
-
-    // Set a new timeout to reset the drag if held too long
-    dragTimeout.current = setTimeout(() => {
-      setIsDragging(false);
-      setDragOffset(0);
-      setTouchStart(null);
-      touchStartY.current = null;
-    }, 300); // Reduced timeout for better responsiveness
-    
-    // Calculate and set drag offset with a maximum limit
-    const maxOffset = window.innerWidth * 0.3; // Limit drag to 30% of screen width
-    const newOffset = currentX - (touchStart || 0);
-    setDragOffset(Math.max(-maxOffset, Math.min(maxOffset, newOffset)));
   };
 
-  const handleMouseUp = () => {
-    if (!isDragging || hasOpenComments || hasOpenArticle || isScrolling) {
-      // Reset states if conditions aren't met
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    console.log('[DEBUG] handleTouchEnd fired');
     setIsDragging(false);
     setDragOffset(0);
     setTouchStart(null);
+    setTouchStartX(null);
+    setTouchStartY2(null);
     touchStartY.current = null;
-      return;
-    }
-
-    // Clear the drag timeout
-    if (dragTimeout.current) {
-      clearTimeout(dragTimeout.current);
-      dragTimeout.current = null;
-    }
-
-    const threshold = 50;
-    const currentIndex = categories.indexOf(currentCategory);
-    let newIndex = currentIndex;
-
-    if (Math.abs(dragOffset) > threshold) {
-      if (dragOffset > 0 && currentIndex > 0) {
-        newIndex = currentIndex - 1;
-      } else if (dragOffset < 0 && currentIndex < categories.length - 1) {
-        newIndex = currentIndex + 1;
-      }
-    }
-
-    handleCategoryChange(newIndex);
-
-    // Reset states with a small delay to allow for smooth transition
-    setTimeout(() => {
-    setIsDragging(false);
-    setDragOffset(0);
-    setTouchStart(null);
-    touchStartY.current = null;
-    }, 50);
   };
+
+  // Scroll to the correct video when activeVideoIndex changes
+  useEffect(() => {
+    if (!feedRef.current) return;
+    feedRef.current.scrollTo({
+      top: feedRef.current.clientHeight * activeVideoIndex,
+      behavior: 'smooth',
+    });
+  }, [activeVideoIndex]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -1411,6 +1349,89 @@ export default function VideoFeed() {
     }
   }, [videos]);
 
+  // Restore mouse event handlers for mouse events
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (hasOpenComments || hasOpenArticle) return;
+    setTouchStart(e.clientX);
+    touchStartY.current = e.clientY;
+    setIsDragging(true);
+    setIsScrolling(false);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || hasOpenComments || hasOpenArticle) return;
+    const currentX = e.clientX;
+    const currentY = e.clientY;
+    const verticalMovement = Math.abs(currentY - (touchStartY.current || 0));
+    const horizontalMovement = Math.abs(currentX - (touchStart || 0));
+    if (verticalMovement > horizontalMovement && !isScrolling) {
+      setIsScrolling(true);
+      setIsDragging(false);
+      return;
+    }
+    if (dragTimeout.current) {
+      clearTimeout(dragTimeout.current);
+    }
+    dragTimeout.current = setTimeout(() => {
+      setIsDragging(false);
+      setDragOffset(0);
+      setTouchStart(null);
+      touchStartY.current = null;
+    }, 300);
+    const maxOffsetMouse = window.innerWidth * 0.3;
+    const newOffsetMouse = currentX - (touchStart || 0);
+    setDragOffset(Math.max(-maxOffsetMouse, Math.min(maxOffsetMouse, newOffsetMouse)));
+  };
+
+  const handleMouseUp = () => {
+    if (!isDragging || hasOpenComments || hasOpenArticle || isScrolling) {
+    setIsDragging(false);
+    setDragOffset(0);
+    setTouchStart(null);
+    touchStartY.current = null;
+      return;
+    }
+    if (dragTimeout.current) {
+      clearTimeout(dragTimeout.current);
+      dragTimeout.current = null;
+    }
+    const threshold = 50;
+    const currentIndex = categories.indexOf(currentCategory);
+    let newIndex = currentIndex;
+    if (Math.abs(dragOffset) > threshold) {
+      if (dragOffset > 0 && currentIndex > 0) {
+        newIndex = currentIndex - 1;
+      } else if (dragOffset < 0 && currentIndex < categories.length - 1) {
+        newIndex = currentIndex + 1;
+      }
+    }
+    handleCategoryChange(newIndex);
+    setTimeout(() => {
+    setIsDragging(false);
+    setDragOffset(0);
+    setTouchStart(null);
+    touchStartY.current = null;
+    }, 50);
+  };
+
+  const handleMouseLeave = handleMouseUp;
+
+  // Remove onTouchMove from the feed container's JSX and add a useEffect for native event
+  useEffect(() => {
+    const feed = feedRef.current;
+    if (!feed) return;
+    // Handler that mimics React's event signature
+    const nativeTouchMove = (e: TouchEvent) => {
+      // Wrap the React handler to use the same logic
+      // @ts-ignore
+      handleTouchMove(e);
+    };
+    feed.addEventListener('touchmove', nativeTouchMove, { passive: false });
+    return () => {
+      feed.removeEventListener('touchmove', nativeTouchMove);
+    };
+  }, [feedRef.current, isDragging, hasOpenComments, hasOpenArticle, touchStartX, touchStartY2, swipeDirection]);
+
   if (isLoading) {
     return (
       <div className="relative h-full flex items-center justify-center bg-black">
@@ -1442,18 +1463,15 @@ export default function VideoFeed() {
   return (
     <div 
       className="relative h-full flex flex-col items-center"
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
     >
       <TopNav />
-      
+      {/* Overlay to block feed interaction when overlays are open */}
+      {(hasOpenComments || hasOpenArticle) && (
+        <div className="fixed inset-0 z-[99999] bg-black/30" style={{ pointerEvents: 'auto' }} />
+      )}
       {/* Video Feed */}
       <div 
+        ref={feedRef}
         className="w-full h-[calc(100vh-120px)] mx-auto flex-1 overflow-y-scroll snap-y snap-mandatory scrollbar-hide relative"
         onScroll={handleScroll}
         style={{
@@ -1463,6 +1481,12 @@ export default function VideoFeed() {
           pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto',
           touchAction: isDragging ? 'none' : 'pan-y'
         }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
       >
         {videos.length === 0 ? (
           <div className="h-full flex items-center justify-center bg-black text-white text-center p-4">
@@ -1474,7 +1498,7 @@ export default function VideoFeed() {
               key={video.id}
               id={`video-${video.id}`}
               className={`relative w-full h-full snap-start ${
-                index === currentVideoIndex ? 'z-10' : 'z-0'
+                index === activeVideoIndex ? 'z-10' : 'z-0'
               }`}
             >
               <VideoPost

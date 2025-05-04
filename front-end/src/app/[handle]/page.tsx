@@ -283,10 +283,6 @@ export default function CreatorPage() {
                       style={{ zIndex: 1 }}
                     />
                   )}
-                  {/* Play Icon Overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center" style={{ zIndex: 2 }}>
-                    <Play size={24} className="text-white opacity-70" />
-                  </div>
                   {/* Title Overlay */}
                   <div style={{ padding: getResponsiveSize(8), zIndex: 3 }} className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent">
                     <p style={{ fontSize: getResponsiveSize(10) }} className="text-white truncate">{video.title}</p>
