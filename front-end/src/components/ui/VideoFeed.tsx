@@ -110,6 +110,43 @@ if (typeof document !== 'undefined') {
   document.head.appendChild(styleElement);
 }
 
+// 1. Add a custom filled, translucent pause icon component at the top (after imports)
+const FilledPause = ({ size = 20, style = {} }) => { // Responsive base size
+  const px = parseInt(getResponsiveSize(size));
+  return (
+    <svg
+      width={px}
+      height={px}
+      viewBox="0 0 32 32"
+      fill="white"
+      fillOpacity="0.6" // Translucent
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ display: 'block', ...style }}
+    >
+      <rect x="7" y="6" width="6" height="20" rx="2" />
+      <rect x="19" y="6" width="6" height="20" rx="2" />
+    </svg>
+  );
+};
+
+// 2. Add a custom filled, translucent play icon component at the top (after FilledPause)
+const FilledPlay = ({ size = 20, style = {} }) => { // Responsive base size
+  const px = parseInt(getResponsiveSize(size));
+  return (
+    <svg
+      width={px}
+      height={px}
+      viewBox="0 0 32 32"
+      fill="white"
+      fillOpacity="0.6" // Translucent
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ display: 'block', ...style }}
+    >
+      <polygon points="10,7 26,16 10,25" rx="2" />
+    </svg>
+  );
+};
+
 function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onArticleOpenChange }: VideoPostProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -166,6 +203,9 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
     // Reset double tap heart state when video changes or becomes inactive
     setShowDoubleTapHeart(false);
     setDoubleTapPosition({ x: 0, y: 0 });
+    // Reset play/pause icon state when video becomes active again
+    setShowPlayPause(false);
+    setIsPlayPauseFading(false);
   }, [video.id, isActive]);
 
   // Early return if video data is invalid
@@ -596,16 +636,24 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
           <div 
             className="absolute inset-0 flex items-center justify-center"
           >
+            {/* Kawaii: Radial gradient background for play/pause icon */}
             <div 
-              className={`w-16 h-16 flex items-center justify-center rounded-full bg-black/40 text-white transition-all duration-500 ease-in-out transform ${
+              className={`play-pause-gradient-bg transition-all duration-500 ease-in-out transform ${
                 isPlayPauseFading ? 'opacity-0 scale-90' : 'opacity-100 scale-100'
               }`}
+              style={{
+                width: getResponsiveSize(40), // Responsive button size
+                height: getResponsiveSize(40),
+                minWidth: getResponsiveSize(20),
+                minHeight: getResponsiveSize(20),
+                ...((isPlayPauseFading ? { opacity: 0, transform: 'scale(0.9)' } : { opacity: 1, transform: 'scale(1)' }))
+              }}
             >
               {/* Swap icons: Show Pause when playing (fade out), Play when paused (always on) */}
               {isPlaying ? (
-                <Pause size={32} />
+                <FilledPause size={20} style={{ zIndex: 1 }} />
               ) : (
-                <Play size={32} />
+                <FilledPlay size={20} style={{ zIndex: 1 }} />
               )}
             </div>
           </div>
@@ -623,6 +671,14 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
         >
           <h2 style={{ fontSize: getResponsiveSize(20) }} className="font-bold mb-0 select-none mt-[2%] max-w-[75%]">
             {video.title}
+            {/* Badge appears after the title text, even if it wraps to the next line */}
+            <span style={{ marginLeft: 8, verticalAlign: 'middle' }}>
+              <img
+                src="/assets/QuickNewsverifiedbadge.png"
+                alt="QuickNews Verified Badge"
+                style={{ width: getResponsiveSize(90), height: getResponsiveSize(18), display: 'inline-block' }}
+              />
+            </span>
           </h2>
           <div className="relative">
             <div 
@@ -716,42 +772,17 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
                 <div>
                   <h3 style={{ fontSize: getResponsiveSize(14) }} className="font-semibold leading-tight hover:text-[#29ABE2] transition-colors flex items-center gap-1 select-none">
                     {video.creator.name}
-                    <span className="text-[#29ABE2]">
-                      <svg style={{ width: getResponsiveSize(12), height: getResponsiveSize(12) }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
+                    {/* Verified badge from Vector (1).svg - small, next to username */}
+                    <span>
+                      <Image 
+                        src={require('../../../Quick News Assets/Vector (1).svg')}
+                        alt="Verified"
+                        style={{ width: getResponsiveSize(18), height: getResponsiveSize(18), display: 'inline-block', verticalAlign: 'middle' }}
+                      />
                     </span>
                   </h3>
-                  <h4 style={{ fontSize: getResponsiveSize(11) }} className="text-white/70 leading-tight hover:text-[#29ABE2] transition-colors select-none">@{video.creator.name.toLowerCase().replace(/\s+/g, '')}</h4>
                 </div>
               </Link>
-              <button 
-                onClick={toggleFollow}
-                style={{ 
-                  padding: `${getResponsiveSize(4)} ${getResponsiveSize(10)}`,
-                  fontSize: getResponsiveSize(12)
-                }}
-                className={`font-medium rounded-full hover:opacity-80 transition-all duration-300 flex items-center gap-1 relative ${getAnimationClasses()}`}
-              >
-                <div className="flex items-center gap-1">
-                  {isFollowing ? (
-                    <>
-                      <span>Followed</span>
-                      <svg style={{ width: getResponsiveSize(12), height: getResponsiveSize(12) }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="transform transition-transform duration-300">
-                        <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </>
-                  ) : (
-                    'Follow'
-                  )}
-                </div>
-                {showSparkles && (
-                  <div className="absolute -top-1 -right-1 w-2 h-2">
-                    <div className="absolute inset-0 bg-yellow-400 rounded-full animate-ping opacity-75"></div>
-                    <div className="absolute inset-0 bg-yellow-400 rounded-full"></div>
-                  </div>
-                )}
-              </button>
             </div>
             <button 
               onClick={(e) => {
@@ -1432,6 +1463,20 @@ export default function VideoFeed() {
     };
   }, [feedRef.current, isDragging, hasOpenComments, hasOpenArticle, touchStartX, touchStartY2, swipeDirection]);
 
+  // Ensure video restarts and autoplays on swipe (activeVideoIndex change)
+  useEffect(() => {
+    if (!videos[activeVideoIndex]) return;
+    // Find the video element for the active video
+    const videoElement = document.querySelector(`#video-${videos[activeVideoIndex].id} video`) as HTMLVideoElement;
+    if (!videoElement) return;
+    // Restart video and autoplay
+    videoElement.currentTime = 0;
+    const playPromise = videoElement.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {}); // Ignore errors for autoplay
+    }
+  }, [activeVideoIndex, videos]);
+
   if (isLoading) {
     return (
       <div className="relative h-full flex items-center justify-center bg-black">
@@ -1466,7 +1511,7 @@ export default function VideoFeed() {
     >
       <TopNav />
       {/* Overlay to block feed interaction when overlays are open */}
-      {(hasOpenComments || hasOpenArticle) && (
+      {hasOpenComments && (
         <div className="fixed inset-0 z-[99999] bg-black/30" style={{ pointerEvents: 'auto' }} />
       )}
       {/* Video Feed */}

@@ -8,6 +8,7 @@ import Comments from '@/components/ui/Comments';
 import ArticlePopup from '@/components/ui/ArticlePopup';
 import VideoFeed2 from '@/components/ui/VideoFeed2';
 import axios from 'axios';
+import Image from 'next/image';
 
 // Calculate responsive sizes based on viewport height (700px reference)
 const getResponsiveSize = (baseSize: number): string => {
@@ -166,20 +167,20 @@ export default function CreatorPage() {
               <div className="text-center">
                 <h1 style={{ fontSize: getResponsiveSize(16) }} className="font-bold flex items-center justify-center gap-1">
                   {userData.name}
-                  <span className="text-[#29ABE2]">
-                    <svg 
-                      style={{ width: getResponsiveSize(16), height: getResponsiveSize(16) }} 
-                      viewBox="0 0 24 24" 
-                      fill="none" 
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" 
-                        stroke="currentColor" 
-                        strokeWidth="2" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                  {/* Verified badge from /assets/Vector (1).svg in public/assets */}
+                  <span>
+                    <Image
+                      src="/assets/Vector (1).svg"
+                      alt="Verified"
+                      width={18}
+                      height={18}
+                      style={{
+                        width: getResponsiveSize(18),
+                        height: getResponsiveSize(18),
+                        display: 'inline-block',
+                        verticalAlign: 'middle'
+                      }}
+                    />
                   </span>
                 </h1>
                 <h2 style={{ fontSize: getResponsiveSize(11) }} className="text-gray-400">@{userData.handle}</h2>

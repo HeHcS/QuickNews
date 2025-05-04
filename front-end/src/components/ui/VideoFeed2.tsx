@@ -38,6 +38,30 @@ const doubleTapHeartStyle = `
     animation: double-tap-heart 1s cubic-bezier(0.17, 0.89, 0.32, 1.49) forwards;
     animation-delay: var(--animation-delay, 0s);
   }
+  /* Kawaii: Play/Pause Radial Gradient Background */
+  .play-pause-gradient-bg {
+    position: relative;
+    width: 4rem;
+    height: 4rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background: none;
+    overflow: visible;
+  }
+  .play-pause-gradient-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    z-index: 0;
+    /* Soft transparent black/gray radial gradient with blur for kawaii effect */
+    background: radial-gradient(circle at 60% 40%, rgba(30,30,30,0.7) 0%, rgba(30,30,30,0.4) 60%, rgba(30,30,30,0.0) 100%);
+    filter: blur(16px) brightness(1.1);
+    opacity: 0.85;
+    transition: opacity 0.3s;
+  }
 `;
 
 // Add the style to the document
@@ -110,6 +134,42 @@ const getResponsiveSize = (baseSize: number): string => {
 // Add this at the top of the file, after imports
 const currentlyPlayingVideoRef = { current: null as HTMLVideoElement | null };
 const isSeekbarDraggingRef = { current: false };
+
+// 1. Add a custom filled, translucent pause icon component at the top (after imports)
+const FilledPause = ({ size = 20, style = {} }) => {
+  const px = parseInt(getResponsiveSize(size));
+  return (
+    <svg
+      width={px}
+      height={px}
+      viewBox="0 0 32 32"
+      fill="white"
+      fillOpacity="0.6"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ display: 'block', ...style }}
+    >
+      <rect x="7" y="6" width="6" height="20" rx="2" />
+      <rect x="19" y="6" width="6" height="20" rx="2" />
+    </svg>
+  );
+};
+// 2. Add a custom filled, translucent play icon component at the top (after FilledPause)
+const FilledPlay = ({ size = 20, style = {} }) => {
+  const px = parseInt(getResponsiveSize(size));
+  return (
+    <svg
+      width={px}
+      height={px}
+      viewBox="0 0 32 32"
+      fill="white"
+      fillOpacity="0.6"
+      xmlns="http://www.w3.org/2000/svg"
+      style={{ display: 'block', ...style }}
+    >
+      <polygon points="10,7 26,16 10,25" rx="2" />
+    </svg>
+  );
+};
 
 function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onArticleOpenChange }: VideoPostProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -622,16 +682,24 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
           <div 
             className="absolute inset-0 flex items-center justify-center"
           >
+            {/* Kawaii: Radial gradient background for play/pause icon */}
             <div 
-              className={`w-16 h-16 flex items-center justify-center rounded-full bg-black/40 text-white transition-all duration-500 ease-in-out transform ${
+              className={`play-pause-gradient-bg transition-all duration-500 ease-in-out transform ${
                 isPlayPauseFading ? 'opacity-0 scale-90' : 'opacity-100 scale-100'
               }`}
+              style={{
+                width: getResponsiveSize(40), // Responsive button size
+                height: getResponsiveSize(40),
+                minWidth: getResponsiveSize(20),
+                minHeight: getResponsiveSize(20),
+                ...((isPlayPauseFading ? { opacity: 0, transform: 'scale(0.9)' } : { opacity: 1, transform: 'scale(1)' }))
+              }}
             >
               {/* Swap icons: Show Pause when playing (fade out), Play when paused (always on) */}
               {isPlaying ? (
-                <Pause size={32} />
+                <FilledPause size={20} style={{ zIndex: 1 }} />
               ) : (
-                <Play size={32} />
+                <FilledPlay size={20} style={{ zIndex: 1 }} />
               )}
             </div>
           </div>
@@ -647,8 +715,17 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
           }} 
           className="absolute left-0 right-[10px] p-4 text-white"
         >
+          {/* Video title with badge after the text, inside the same h2! */}
           <h2 style={{ fontSize: getResponsiveSize(20) }} className="font-bold mb-0 select-none mt-[2%] max-w-[75%]">
             {video.title}
+            {/* Badge appears after the title text, even if it wraps to the next line */}
+            <span style={{ marginLeft: 8, verticalAlign: 'middle' }}>
+              <img
+                src="/assets/QuickNewsverifiedbadge.png"
+                alt="QuickNews Verified Badge"
+                style={{ width: getResponsiveSize(82), height: getResponsiveSize(18), display: 'inline-block' }}
+              />
+            </span>
           </h2>
           <div className="relative">
             <div 
@@ -742,42 +819,17 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
                 <div>
                   <h3 style={{ fontSize: getResponsiveSize(14) }} className="font-semibold leading-tight hover:text-[#29ABE2] transition-colors flex items-center gap-1 select-none">
                     {video.creator.name}
-                    <span className="text-[#29ABE2]">
-                      <svg style={{ width: getResponsiveSize(12), height: getResponsiveSize(12) }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
+                    {/* Verified badge from Vector (1).svg - bigger base size */}
+                    <span>
+                      <Image 
+                        src={require('../../../Quick News Assets/Vector (1).svg')}
+                        alt="Verified"
+                        style={{ width: getResponsiveSize(18), height: getResponsiveSize(18), display: 'inline-block', verticalAlign: 'middle' }}
+                      />
                     </span>
                   </h3>
-                  <h4 style={{ fontSize: getResponsiveSize(11) }} className="text-white/70 leading-tight hover:text-[#29ABE2] transition-colors select-none">@{video.creator.name.toLowerCase().replace(/\s+/g, '')}</h4>
                 </div>
               </Link>
-              <button 
-                onClick={toggleFollow}
-                style={{ 
-                  padding: `${getResponsiveSize(4)} ${getResponsiveSize(10)}`,
-                  fontSize: getResponsiveSize(12)
-                }}
-                className={`font-medium rounded-full hover:opacity-80 transition-all duration-300 flex items-center gap-1 relative ${getAnimationClasses()}`}
-              >
-                <div className="flex items-center gap-1">
-                  {isFollowing ? (
-                    <>
-                      <span>Followed</span>
-                      <svg style={{ width: getResponsiveSize(12), height: getResponsiveSize(12) }} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="transform transition-transform duration-300">
-                        <path d="M9 12L11 14L15 10M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </>
-                  ) : (
-                    'Follow'
-                  )}
-                </div>
-                {showSparkles && (
-                  <div className="absolute -top-1 -right-1 w-2 h-2">
-                    <div className="absolute inset-0 bg-yellow-400 rounded-full animate-ping opacity-75"></div>
-                    <div className="absolute inset-0 bg-yellow-400 rounded-full"></div>
-                  </div>
-                )}
-              </button>
             </div>
             <button 
               onClick={(e) => {
@@ -1138,58 +1190,88 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
     };
   }, [activeVideoIndex, videos]);
 
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+  // Ensure video restarts and autoplays on swipe (activeVideoIndex change)
+  useEffect(() => {
+    if (!videos[activeVideoIndex]) return;
+    // Find the video element for the active video
+    const videoElement = document.querySelector(`#video-${videos[activeVideoIndex].id} video`) as HTMLVideoElement;
+    if (!videoElement) return;
+    // Restart video and autoplay
+    videoElement.currentTime = 0;
+    const playPromise = videoElement.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(() => {}); // Ignore errors for autoplay
+    }
+  }, [activeVideoIndex, videos]);
+
+  // --- SWIPE TO SCROLL STATE & REFS (ultra-reliable, kawaii!) ---
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartY, setDragStartY] = useState<number | null>(null);
+  const [dragDeltaY, setDragDeltaY] = useState(0);
+  const [swipeLocked, setSwipeLocked] = useState(false);
+  const dragStartTime = useRef<number | null>(null);
+  const SWIPE_THRESHOLD = 60; // px
+  // --- Refs for always-fresh state in native handler ---
+  const activeVideoIndexRef = useRef(activeVideoIndex);
+  const videosLengthRef = useRef(videos.length);
+  const swipeLockedRef = useRef(swipeLocked);
+  useEffect(() => { activeVideoIndexRef.current = activeVideoIndex; }, [activeVideoIndex]);
+  useEffect(() => { videosLengthRef.current = videos.length; }, [videos.length]);
+  useEffect(() => { swipeLockedRef.current = swipeLocked; }, [swipeLocked]);
+
+  // --- TOUCH HANDLERS (vertical swipe only, kawaii!) ---
+  const handleTouchStart = (e: React.TouchEvent) => {
+    console.log('[SWIPE DEBUG] TouchStart');
     if (hasOpenComments || hasOpenArticle) return;
-    
-    const element = e.currentTarget;
-    const newIndex = Math.round(element.scrollTop / element.clientHeight);
-    if (newIndex !== activeVideoIndex) {
-      setActiveVideoIndex(newIndex);
-      
-      // Pause all videos first
-      const allVideos = document.querySelectorAll('video');
-      allVideos.forEach(video => {
-        video.pause();
-      });
-      
-      // Clear the currently playing video reference
-      currentlyPlayingVideoRef.current = null;
-      
-      // Force autoplay for the newly active video and reset to beginning
-      setTimeout(() => {
-        const videoElements = document.querySelectorAll('video');
-        if (videoElements[newIndex]) {
-          const videoElement = videoElements[newIndex] as HTMLVideoElement;
-          videoElement.currentTime = 0; // Reset to beginning
-          
-          // Set this as the currently playing video
-          currentlyPlayingVideoRef.current = videoElement;
-          
-          if (videoElement.paused) {
-            const playPromise = videoElement.play();
-            if (playPromise !== undefined) {
-              playPromise.catch(error => {
-                console.error('Error playing video:', error);
-              });
-            }
+    setIsDragging(true);
+    setSwipeLocked(false);
+    setDragStartY(e.touches[0].clientY);
+    setDragDeltaY(0);
+    dragStartTime.current = Date.now();
+  };
+  const handleTouchEnd = () => {
+    console.log('[SWIPE DEBUG] TouchEnd');
+    setIsDragging(false);
+    setDragStartY(null);
+    setDragDeltaY(0);
+    setSwipeLocked(false);
+    dragStartTime.current = null;
+  };
+  // --- NATIVE TOUCH MOVE EFFECT (for buttery mobile swipes!) ---
+  useEffect(() => {
+    const feed = feedRef.current;
+    if (!feed) return;
+    const handleNativeTouchMove = (e: TouchEvent) => {
+      if (isDragging && !swipeLockedRef.current) {
+        e.preventDefault();
+        console.log('[SWIPE DEBUG] NativeTouchMove', e.touches[0]?.clientY);
+        const touch = e.touches[0];
+        if (!touch) return;
+        const currentY = touch.clientY;
+        if (dragStartY === null) return;
+        const deltaY = currentY - dragStartY;
+        setDragDeltaY(deltaY);
+        if (Math.abs(deltaY) > SWIPE_THRESHOLD && !swipeLockedRef.current) {
+          swipeLockedRef.current = true;
+          setSwipeLocked(true);
+          const direction = deltaY > 0 ? -1 : 1;
+          let newIndex = activeVideoIndexRef.current + direction;
+          newIndex = Math.max(0, Math.min(videosLengthRef.current - 1, newIndex));
+          console.log('[SWIPE DEBUG] Swiping to video', newIndex);
+          if (newIndex !== activeVideoIndexRef.current) {
+            setActiveVideoIndex(newIndex);
+            setTimeout(() => {
+              document.getElementById(`video-${videos[newIndex]?.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 0);
           }
         }
-      }, 100); // Small delay to ensure the video is ready
-    }
-  };
-
-  // Scroll to initial video after videos are loaded
-  useEffect(() => {
-    if (!isLoading && videos.length > 0 && initialVideoIndex > 0) {
-      const feedElement = document.querySelector('.snap-mandatory');
-      if (feedElement) {
-        feedElement.scrollTo({
-          top: feedElement.clientHeight * initialVideoIndex,
-          behavior: 'auto'
-        });
       }
-    }
-  }, [isLoading, videos, initialVideoIndex]);
+    };
+    feed.addEventListener('touchmove', handleNativeTouchMove, { passive: false });
+    return () => {
+      feed.removeEventListener('touchmove', handleNativeTouchMove);
+    };
+  }, [isDragging, dragStartY, videos]);
 
   if (isLoading) {
     return (
@@ -1245,8 +1327,17 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
       )}
       {/* Video Feed */}
       <div 
-        className="w-full flex-1 overflow-y-scroll snap-y snap-mandatory scrollbar-hide relative"
-        onScroll={handleScroll}
+        ref={feedRef}
+        className="w-full flex-1 overflow-y-scroll snap-y snap-mandatory scrollbar-hide relative h-screen"
+        style={{
+          minHeight: '100vh',
+          cursor: isDragging ? 'grabbing' : 'default',
+          pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto',
+          touchAction: isDragging ? 'none' : 'pan-y'
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
         {videos.length === 0 ? (
           <div className="h-full flex items-center justify-center bg-black text-white text-center p-4">
