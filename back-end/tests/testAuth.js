@@ -1,7 +1,7 @@
 import fetch from 'node-fetch';
 
 // Base URL for the API
-const BASE_URL = 'http://localhost:5000/api/auth';
+const BASE_URL = 'https://quick-news-backend.vercel.app/api/auth';
 
 // Test user data
 const testUser = {
