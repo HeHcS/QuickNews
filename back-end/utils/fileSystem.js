@@ -33,8 +33,17 @@ export const ensureProfilesDirExists = () => {
   return profilesDir;
 };
 
+// Ensure featured images directory exists
+export const ensureFeaturedImagesDirExists = () => {
+  const featuredImagesDir = path.join(__dirname, '../uploads/featured-images');
+  if (!fs.existsSync(featuredImagesDir)) {
+    fs.mkdirSync(featuredImagesDir, { recursive: true });
+  }
+  return featuredImagesDir;
+};
+
 export const ensureDirectoryExists = (dirPath) => {
   if (!fs.existsSync(dirPath)) {
     fs.mkdirSync(dirPath, { recursive: true });
   }
-}; 
+};
