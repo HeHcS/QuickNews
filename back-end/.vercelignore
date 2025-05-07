@@ -1,0 +1,10 @@
+# Exclude large dependencies and unnecessary files
+node_modules/@ffmpeg-installer/darwin-*
+node_modules/@ffmpeg-installer/linux-*
+node_modules/@ffmpeg-installer/win32-*
+!node_modules/@ffmpeg-installer/win32-x64
+uploads/videos/*
+uploads/temp/*
+tests/
+*.test.js
+*.spec.js 
