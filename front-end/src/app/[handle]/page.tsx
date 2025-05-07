@@ -59,7 +59,7 @@ export default function CreatorPage() {
   const [userData, setUserData] = useState({
     name: '',
     handle: handle,
-    avatar: `http://localhost:5000/uploads/profiles/default-profile.png`,
+    avatar: `https://quick-news-backend.vercel.app/uploads/profiles/default-profile.png`,
     bio: 'Feed your daily addiction with the biggest stories from news, politics, showbiz and everything else.',
     stats: {
       posts: 134,
@@ -67,10 +67,12 @@ export default function CreatorPage() {
       following: 208
     }
   });
+  const [selectedVideoIndex, setSelectedVideoIndex] = useState(0);
+  const [isArticlePopupOpen, setIsArticlePopupOpen] = useState(false);
 
   const handleVideoClick = (video: any, index: number) => {
     setSelectedVideo(video);
-    localStorage.setItem('selectedVideoIndex', index.toString());
+    setSelectedVideoIndex(index);
   };
 
   const resetVideoState = () => {
@@ -83,7 +85,7 @@ export default function CreatorPage() {
       setError(null);
       try {
         const handleLower = handle.toLowerCase();
-        const profileRes = await axios.get(`http://localhost:5000/api/profile/handle/${handleLower}`);
+        const profileRes = await axios.get(`https://quick-news-backend.vercel.app/api/profile/handle/${handleLower}`);
         const profile = profileRes.data?.data?.profile;
         const creatorId = profile?._id;
         if (!creatorId) throw new Error('Creator not found');
@@ -92,15 +94,15 @@ export default function CreatorPage() {
         setUserData(prev => ({
           ...prev,
           name: profile.name || '',
-          avatar: profile.profilePicture ? `http://localhost:5000/uploads/profiles/${profile.profilePicture}` : prev.avatar,
+          avatar: profile.profilePicture ? `https://quick-news-backend.vercel.app/uploads/profiles/${profile.profilePicture}` : prev.avatar,
           bio: profile.bio || prev.bio
         }));
 
-        const videosRes = await axios.get(`http://localhost:5000/api/videos/creator/${creatorId}`);
+        const videosRes = await axios.get(`https://quick-news-backend.vercel.app/api/videos/creator/${creatorId}`);
         // Process videos to include full URLs for thumbnails
         const processedVideos = (videosRes.data?.videos || []).map((video: VideoData) => ({
           ...video,
-          thumbnail: video.thumbnail ? `http://localhost:5000/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png'
+          thumbnail: video.thumbnail ? `https://quick-news-backend.vercel.app/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png'
         }));
         setVideos(processedVideos);
       } catch (err) {
@@ -119,10 +121,11 @@ export default function CreatorPage() {
         <VideoFeed2 
           creatorHandle={handle} 
           onClose={resetVideoState}
-          initialVideoIndex={parseInt(localStorage.getItem('selectedVideoIndex') || '0')}
+          initialVideoIndex={selectedVideoIndex}
+          onArticleOpenChange={setIsArticlePopupOpen}
         />
         <div className="fixed bottom-0 left-0 right-0 z-50">
-          <BottomNav />
+          {isArticlePopupOpen ? null : <BottomNav />}
         </div>
       </div>
     );
@@ -301,7 +304,7 @@ export default function CreatorPage() {
 
       {/* Bottom Navigation - Always visible */}
       <div className="fixed bottom-0 left-0 right-0 z-50">
-        <BottomNav />
+        {isArticlePopupOpen ? null : <BottomNav />}
       </div>
     </div>
   );

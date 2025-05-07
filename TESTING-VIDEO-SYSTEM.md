@@ -39,16 +39,16 @@ node tests/manualTestVideos.js
 #### Basic Streaming Test
 
 1. Start the server: `npm run dev`
-2. Navigate to: `http://localhost:5000/api/videos/feed`
+2. Navigate to: `https://quick-news-backend.vercel.app/api/videos/feed`
 3. Note the ID of one of the videos
-4. Test streaming by accessing: `http://localhost:5000/api/videos/{video_id}/stream`
+4. Test streaming by accessing: `https://quick-news-backend.vercel.app/api/videos/{video_id}/stream`
 5. Verify that video content is streamed properly
 
 #### Range Request Testing
 
 1. Use a tool like cURL to send range requests:
 ```bash
-curl -i -H "Range: bytes=0-1000" http://localhost:5000/api/videos/{video_id}/stream
+curl -i -H "Range: bytes=0-1000" https://quick-news-backend.vercel.app/api/videos/{video_id}/stream
 ```
 2. Verify that the server responds with status 206 and the requested range
 
@@ -58,11 +58,11 @@ curl -i -H "Range: bytes=0-1000" http://localhost:5000/api/videos/{video_id}/str
 2. Retrieve the JWT token
 3. Use the token to access the user's bookmarks: 
 ```bash
-curl -i -H "Authorization: Bearer {token}" http://localhost:5000/api/videos/user/bookmarks
+curl -i -H "Authorization: Bearer {token}" https://quick-news-backend.vercel.app/api/videos/user/bookmarks
 ```
 4. Create a new bookmark for a video:
 ```bash
-curl -i -X POST -H "Authorization: Bearer {token}" -H "Content-Type: application/json" -d '{"notes":"Test bookmark","collectionName":"Test"}' http://localhost:5000/api/videos/{video_id}/bookmark
+curl -i -X POST -H "Authorization: Bearer {token}" -H "Content-Type: application/json" -d '{"notes":"Test bookmark","collectionName":"Test"}' https://quick-news-backend.vercel.app/api/videos/{video_id}/bookmark
 ```
 5. Verify the bookmark was created successfully
 
@@ -70,12 +70,12 @@ curl -i -X POST -H "Authorization: Bearer {token}" -H "Content-Type: application
 
 1. Access all active categories:
 ```bash
-curl -i http://localhost:5000/api/categories
+curl -i https://quick-news-backend.vercel.app/api/categories
 ```
 2. Verify that only active categories are returned
 3. Test filtering videos by category:
 ```bash
-curl -i http://localhost:5000/api/videos/category/{category_id}
+curl -i https://quick-news-backend.vercel.app/api/videos/category/{category_id}
 ```
 
 ### 5. Automated API Testing

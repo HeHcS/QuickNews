@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import videoRoutes from './routes/videoRoutes.js';
+import articleRoutes from './routes/articleRoutes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -11,7 +12,7 @@ const app = express();
 
 // CORS Configuration
 const corsOptions = {
-    origin: ['http://localhost:3000'], // Allow frontend ports
+    origin: ['https://quick-news-frontend.vercel.app'], // Allow frontend ports
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
     credentials: true, // Enable credentials (cookies, authorization headers)
@@ -30,6 +31,7 @@ app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Routes
 app.use('/api/videos', videoRoutes);
+app.use('/api/articles', articleRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -45,4 +47,4 @@ app.use((err, req, res, next) => {
     });
 });
 
-export default app; 
+export default app;

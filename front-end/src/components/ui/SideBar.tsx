@@ -109,7 +109,7 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
           <div className="flex items-center gap-4">
             <div style={{ width: getResponsiveSize(48), height: getResponsiveSize(48) }} className="rounded-full bg-gradient-to-br from-[#29ABE2] to-[#1E88C5] overflow-hidden border-2 border-white/20">
               <Image
-                src="http://localhost:5000/uploads/profiles/default-profile.png"
+                src="https://quick-news-backend.vercel.app/uploads/profiles/default-profile.png"
                 alt="Profile"
                 width={48}
                 height={48}

@@ -11,9 +11,10 @@ import authRoutes from './routes/authRoutes.js';
 import videoRoutes from './routes/videoRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import engagementRoutes from './routes/engagementRoutes.js';
+import articleRoutes from './routes/articleRoutes.js';
 import { initRedis, closeRedis } from './utils/redisCache.js';
 import { ensureVideosDirExists } from './utils/videoStream.js';
-import { ensureProfilesDirExists } from './utils/fileSystem.js';
+import { ensureProfilesDirExists, ensureFeaturedImagesDirExists } from './utils/fileSystem.js';
 import cors from 'cors';
 
 // Load environment variables
@@ -28,7 +29,7 @@ const app = express();
 
 // CORS Configuration
 const corsOptions = {
-  origin: ['http://localhost:3000', 'http://localhost:5000'],
+  origin: ['https://quick-news-frontend.vercel.app', 'https://quick-news-backend.vercel.app'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   credentials: true
@@ -94,6 +95,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/videos', videoRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/engagement', attachSocketIO, engagementRoutes);
+app.use('/api/articles', articleRoutes);
 
 // Base route
 app.get('/', (req, res) => {
@@ -144,6 +146,7 @@ const startServer = async () => {
   // Ensure required directories exist
   ensureVideosDirExists();
   ensureProfilesDirExists();
+  ensureFeaturedImagesDirExists();
   
   // Initialize Redis
   await initRedis();
@@ -157,7 +160,7 @@ const startServer = async () => {
   // Initialize Socket.IO
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:3000',
+      origin: process.env.CLIENT_URL || 'https://quick-news-frontend.vercel.app',
       methods: ['GET', 'POST']
     }
   });
@@ -216,4 +219,4 @@ connectDB()
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err) => {
   console.error('Unhandled Rejection:', err);
-}); 
+});

@@ -23,6 +23,7 @@ interface Video {
   comments: number;
   creator: {
     name: string;
+    handle?: string;
     avatar?: string;
   };
   headline?: {
@@ -208,18 +209,6 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
     setIsPlayPauseFading(false);
   }, [video.id, isActive]);
 
-  // Early return if video data is invalid
-  if (!video || !video.videoFile) {
-    return (
-      <div ref={ref} className="relative h-[700px] w-full snap-start bg-black flex items-center justify-center">
-        <div className="text-white text-center p-4">
-          <p className="text-xl font-bold mb-2">Video Unavailable</p>
-          <p className="text-sm opacity-80">This content could not be loaded.</p>
-        </div>
-      </div>
-    );
-  }
-
   // Handle video playback based on visibility
   useEffect(() => {
     if (!videoRef.current) return;
@@ -236,11 +225,21 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
       currentlyPlayingVideoRef.current = videoElement;
       
       // Force autoplay when active and in view
+      videoElement.muted = true; // Temporarily mute to improve autoplay chances
       const playPromise = videoElement.play();
       if (playPromise !== undefined) {
         playPromise
-          .then(() => setIsPlaying(true))
-          .catch(() => setIsPlaying(false));
+          .then(() => {
+            setIsPlaying(true);
+            videoElement.muted = false; // Unmute after successful play
+          })
+          .catch((error) => {
+            console.error("Autoplay failed:", error);
+            // Try again with muted playback as fallback
+            videoElement.muted = true;
+            videoElement.play().catch(e => console.error("Muted autoplay also failed:", e));
+            setIsPlaying(false);
+          });
       }
     } else {
       videoElement.pause();
@@ -269,12 +268,21 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
       // Set this as the currently playing video
       currentlyPlayingVideoRef.current = videoElement;
       
-      // Force autoplay on mount
+      // Force autoplay on mount with muted fallback
+      videoElement.muted = true;
       const playPromise = videoElement.play();
       if (playPromise !== undefined) {
         playPromise
-          .then(() => setIsPlaying(true))
-          .catch(() => setIsPlaying(false));
+          .then(() => {
+            setIsPlaying(true);
+            // Unmute after successful autoplay
+            videoElement.muted = false;
+          })
+          .catch((error) => {
+            console.error("Initial autoplay failed:", error);
+            // Keep it muted and try again
+            videoElement.play().catch(e => console.error("Muted autoplay also failed:", e));
+          });
       }
     } else {
       // Make sure it's paused if not active
@@ -294,11 +302,21 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
         // Set this as the currently playing video
         currentlyPlayingVideoRef.current = videoElement;
         
+        // Force autoplay on load with muted fallback
+        videoElement.muted = true;
         const playPromise = videoElement.play();
         if (playPromise !== undefined) {
           playPromise
-            .then(() => setIsPlaying(true))
-            .catch(() => setIsPlaying(false));
+            .then(() => {
+              setIsPlaying(true);
+              // Unmute after successful autoplay
+              videoElement.muted = false;
+            })
+            .catch((error) => {
+              console.error("Loaded data autoplay failed:", error);
+              // Keep it muted and try again
+              videoElement.play().catch(e => console.error("Muted autoplay also failed:", e));
+            });
         }
       } else {
         // Make sure it's paused if not active
@@ -586,6 +604,19 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
     };
   }, [isSeekbarDragging]);
 
+  // Early return if video data is invalid
+  if (!video || !video.videoFile) {
+    return (
+      <div ref={ref} className="relative h-[700px] w-full snap-start bg-black flex items-center justify-center">
+        <div className="text-white text-center p-4">
+          <p className="text-xl font-bold mb-2">Video Unavailable</p>
+          <p className="text-sm opacity-80">This content could not be loaded.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Update video elements attributes
   return (
     <div 
       ref={containerRef}
@@ -601,6 +632,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
             src={video.videoFile}
             loop
             playsInline
+            muted={false}
             autoPlay
             className="absolute inset-0 w-full h-full object-cover bg-black"
           />
@@ -747,7 +779,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
           <div className="flex items-center justify-between interactive-element">
             <div className="flex items-center gap-2">
               <Link
-                href={`/@${video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
+                href={`/@${video.creator.handle || video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
                 className="hover:opacity-90 transition-opacity"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -755,14 +787,14 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
                 }}
               >
                 <img
-                  src={video.creator.avatar ? `http://localhost:5000/uploads/profiles/${video.creator.avatar}` : 'http://localhost:5000/uploads/profiles/default-profile.png'}
+                  src={video.creator.avatar ? `https://quick-news-backend.vercel.app/uploads/profiles/${video.creator.avatar}` : 'https://quick-news-backend.vercel.app/uploads/profiles/default-profile.png'}
                   alt={video.creator.name}
                   style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}
                   className="rounded-full border border-white/20 select-none"
                 />
               </Link>
               <Link
-                href={`/@${video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
+                href={`/@${video.creator.handle || video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
                 className="hover:opacity-90 transition-opacity block"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -961,6 +993,12 @@ export default function VideoFeed() {
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isSeekbarDragging, setIsSeekbarDragging] = useState(false);
+  // Infinite scroll state variables
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMoreVideos, setHasMoreVideos] = useState(true);
+  const VIDEOS_THRESHOLD = 3; // Load more when user is within 3 videos of the end
     
   const pathname = usePathname();
   const router = useRouter();
@@ -983,7 +1021,7 @@ export default function VideoFeed() {
   const fetchComments = async (videoId: string) => {
     try {
       setIsLoadingComments(true);
-      const response = await axios.get('http://localhost:5000/api/engagement/comments', {
+      const response = await axios.get('https://quick-news-backend.vercel.app/api/engagement/comments', {
         params: {
           contentId: videoId,
           contentType: 'Video',
@@ -1022,20 +1060,28 @@ export default function VideoFeed() {
     }
   }, [activeVideoIndex, hasOpenComments]);
 
-  useEffect(() => {
-    const fetchVideos = async () => {
+  // Modified fetchVideos function to support pagination
+  const fetchVideos = async (page = 1, append = false) => {
       try {
+      if (page === 1) {
         setIsLoading(true);
+      } else {
+        setIsLoadingMore(true);
+      }
         setError(null);
         
         // Send category parameter if not "For You"
-        const params = currentCategory === 'For You' ? {} : { category: currentCategory };
+      const params: any = currentCategory === 'For You' ? {} : { category: currentCategory };
+      
+      // Add pagination parameters
+      params.page = page;
+      params.limit = 10; // Number of videos per page
         
         console.log('Fetching videos with params:', params);
         console.log('Current category:', currentCategory);
         
         // Fetch videos from backend
-        const response = await axios.get('http://localhost:5000/api/videos/feed', {
+        const response = await axios.get('https://quick-news-backend.vercel.app/api/videos/feed', {
           params,
           headers: {
             'Content-Type': 'application/json',
@@ -1045,24 +1091,38 @@ export default function VideoFeed() {
 
         console.log('Raw video feed response:', response.data);
 
-        // Check if response has the videos array
+      // Check if response has the videos array and pagination info
         if (response.data && Array.isArray(response.data.videos)) {
           // Map the response to include full video URLs and format the data
           const videosWithUrls = response.data.videos.map((video: any) => ({
             id: video._id,
-            videoFile: `http://localhost:5000/api/videos/${video._id}/stream`,
-            thumbnail: video.thumbnail ? `http://localhost:5000/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png',
+            videoFile: `https://quick-news-backend.vercel.app/api/videos/${video._id}/stream`,
+            thumbnail: video.thumbnail ? `https://quick-news-backend.vercel.app/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png',
             title: video.title || 'Untitled Video',
             description: video.description || 'No description available',
             likes: video.likes || 0,
             comments: video.comments || 0,
             creator: {
               name: video.creator?.name || 'Anonymous',
+              handle: video.creator?.handle || video.creator?.name?.toLowerCase().replace(/\s+/g, '') || 'anonymous',
               avatar: video.creator?.profilePicture
             },
             headline: video.headline
           }));
+        
+        // Update state based on whether we're appending or replacing
+        if (append) {
+          setVideos(prevVideos => [...prevVideos, ...videosWithUrls]);
+        } else {
           setVideos(videosWithUrls);
+        }
+        
+        // Update pagination information
+        if (response.data.pagination) {
+          setCurrentPage(response.data.pagination.page);
+          setTotalPages(response.data.pagination.pages);
+          setHasMoreVideos(response.data.pagination.page < response.data.pagination.pages);
+        }
         } else {
           throw new Error('Invalid response format from server');
         }
@@ -1093,11 +1153,26 @@ export default function VideoFeed() {
           error: err
         });
       } finally {
+      if (page === 1) {
         setIsLoading(false);
+      } else {
+        setIsLoadingMore(false);
+      }
       }
     };
 
-    fetchVideos();
+  // Function to load more videos when user approaches the end of the feed
+  const loadMoreVideos = () => {
+    if (isLoadingMore || !hasMoreVideos) return;
+    
+    console.log('Loading more videos, current page:', currentPage);
+    fetchVideos(currentPage + 1, true);
+  };
+
+  // Initial load of videos
+  useEffect(() => {
+    setCurrentPage(1);
+    fetchVideos(1, false);
   }, [currentCategory]);
 
   // Add this effect to pause all videos when component mounts
@@ -1180,6 +1255,12 @@ export default function VideoFeed() {
     
     const element = e.currentTarget;
     const newIndex = Math.round(element.scrollTop / element.clientHeight);
+    
+    // Check if we're approaching the end of the loaded videos
+    if (hasMoreVideos && !isLoadingMore && newIndex >= videos.length - VIDEOS_THRESHOLD) {
+      loadMoreVideos();
+    }
+    
     if (newIndex !== activeVideoIndex) {
       setActiveVideoIndex(newIndex);
       
@@ -1202,13 +1283,20 @@ export default function VideoFeed() {
           // Set this as the currently playing video
           currentlyPlayingVideoRef.current = videoElement;
           
-          if (videoElement.paused) {
-            const playPromise = videoElement.play();
-            if (playPromise !== undefined) {
-              playPromise.catch(error => {
-                console.error('Error playing video:', error);
+          // Improved autoplay with muted fallback
+          videoElement.muted = true; // Temporarily mute to improve autoplay chances
+          const playPromise = videoElement.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                videoElement.muted = false; // Unmute after successful play
+              })
+              .catch((error) => {
+                console.error("Scroll autoplay failed:", error);
+                // Try again with muted playback as fallback
+                videoElement.muted = true;
+                videoElement.play().catch(e => console.error("Muted autoplay also failed:", e));
               });
-            }
           }
         }
       }, 100); // Small delay to ensure the video is ready
@@ -1477,11 +1565,32 @@ export default function VideoFeed() {
     // Find the video element for the active video
     const videoElement = document.querySelector(`#video-${videos[activeVideoIndex].id} video`) as HTMLVideoElement;
     if (!videoElement) return;
-    // Restart video and autoplay
+    
+    // Restart video and autoplay with muted fallback
     videoElement.currentTime = 0;
+    
+    // If there's another video playing, pause it first
+    if (currentlyPlayingVideoRef.current && currentlyPlayingVideoRef.current !== videoElement) {
+      currentlyPlayingVideoRef.current.pause();
+    }
+    
+    // Set this as the currently playing video
+    currentlyPlayingVideoRef.current = videoElement;
+    
+    // Start muted to ensure autoplay works in most browsers
+    videoElement.muted = true;
     const playPromise = videoElement.play();
     if (playPromise !== undefined) {
-      playPromise.catch(() => {}); // Ignore errors for autoplay
+      playPromise
+        .then(() => {
+          // Unmute after successful play
+          videoElement.muted = false;
+        })
+        .catch((error) => {
+          console.error("Active index change autoplay failed:", error);
+          // Keep it muted and try again
+          videoElement.play().catch(e => console.error("Muted autoplay also failed:", e));
+        });
     }
   }, [activeVideoIndex, videos]);
 
@@ -1503,8 +1612,8 @@ export default function VideoFeed() {
           <p className="text-red-500 mb-2">⚠️ Error loading videos</p>
           <p className="text-sm opacity-80">{error}</p>
           <button 
-            onClick={() => window.location.reload()} 
             className="mt-4 px-4 py-2 bg-[#29ABE2] rounded-full hover:bg-[#29ABE2]/80 transition-colors"
+            onClick={() => fetchVideos(1, false)}
           >
             Try Again
           </button>
@@ -1542,7 +1651,8 @@ export default function VideoFeed() {
             <p>No videos available for this category</p>
           </div>
         ) : (
-          videos.map((video, index) => (
+          <>
+            {videos.map((video, index) => (
             <div
               key={video.id}
               id={`video-${video.id}`}
@@ -1559,7 +1669,26 @@ export default function VideoFeed() {
                 onArticleOpenChange={setHasOpenArticle}
               />
             </div>
-          ))
+            ))}
+            
+            {/* Loading indicator for infinite scroll */}
+            {isLoadingMore && (
+              <div className="h-16 w-full flex items-center justify-center">
+                <div className="text-white text-center">
+                  <div className="animate-spin h-6 w-6 border-2 border-white border-t-transparent rounded-full"></div>
+                </div>
+              </div>
+            )}
+            
+            {/* End of feed message when no more videos */}
+            {!hasMoreVideos && videos.length > 0 && (
+              <div className="h-16 w-full flex items-center justify-center">
+                <div className="text-white text-center">
+                  <p className="text-sm opacity-70">You've reached the end of the feed</p>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -1585,6 +1714,8 @@ export default function VideoFeed() {
           onClose={() => setHasOpenArticle(false)}
           title={videos[activeVideoIndex].title}
           content={videos[activeVideoIndex].description}
+          videoId={videos[activeVideoIndex].id}
+          videoCreator={videos[activeVideoIndex].creator}
         />
       )}
     </div>

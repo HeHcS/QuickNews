@@ -81,6 +81,7 @@ interface Video {
   comments: number;
   creator: {
     name: string;
+    handle?: string;
     avatar?: string;
   };
   headline?: {
@@ -116,6 +117,7 @@ interface VideoFeed2Props {
   creatorHandle?: string;
   onClose?: () => void;
   initialVideoIndex?: number;
+  onArticleOpenChange?: (isOpen: boolean) => void;
 }
 
 // Helper functions for responsive sizing
@@ -238,39 +240,6 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
     );
   }
 
-  // Handle video playback based on visibility
-  useEffect(() => {
-    if (!videoRef.current) return;
-    
-    const videoElement = videoRef.current;
-
-    if (isActive && inView) {
-      // If there's another video playing, pause it first
-      if (currentlyPlayingVideoRef.current && currentlyPlayingVideoRef.current !== videoElement) {
-        currentlyPlayingVideoRef.current.pause();
-      }
-      
-      // Set this as the currently playing video
-      currentlyPlayingVideoRef.current = videoElement;
-      
-      // Force autoplay when active and in view
-      const playPromise = videoElement.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => setIsPlaying(true))
-          .catch(() => setIsPlaying(false));
-      }
-    } else {
-      videoElement.pause();
-      setIsPlaying(false);
-      
-      // If this was the currently playing video, clear the reference
-      if (currentlyPlayingVideoRef.current === videoElement) {
-        currentlyPlayingVideoRef.current = null;
-      }
-    }
-  }, [isActive, inView]);
-
   // Force autoplay when component mounts
   useEffect(() => {
     if (!videoRef.current) return;
@@ -287,12 +256,21 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
       // Set this as the currently playing video
       currentlyPlayingVideoRef.current = videoElement;
       
-      // Force autoplay on mount
+      // Force autoplay on mount with muted fallback to ensure it plays
+      videoElement.muted = true;
       const playPromise = videoElement.play();
       if (playPromise !== undefined) {
         playPromise
-          .then(() => setIsPlaying(true))
-          .catch(() => setIsPlaying(false));
+          .then(() => {
+            setIsPlaying(true);
+            // Unmute after successful autoplay
+            videoElement.muted = false;
+          })
+          .catch((error) => {
+            console.error("Initial autoplay failed:", error);
+            // Keep it muted and try again
+            videoElement.play().catch(e => console.error("Muted autoplay also failed:", e));
+          });
       }
     } else {
       // Make sure it's paused if not active
@@ -312,11 +290,21 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
         // Set this as the currently playing video
         currentlyPlayingVideoRef.current = videoElement;
         
+        // Force autoplay on load with muted fallback
+        videoElement.muted = true;
         const playPromise = videoElement.play();
         if (playPromise !== undefined) {
           playPromise
-            .then(() => setIsPlaying(true))
-            .catch(() => setIsPlaying(false));
+            .then(() => {
+              setIsPlaying(true);
+              // Unmute after successful autoplay
+              videoElement.muted = false;
+            })
+            .catch((error) => {
+              console.error("Loaded data autoplay failed:", error);
+              // Keep it muted and try again
+              videoElement.play().catch(e => console.error("Muted autoplay also failed:", e));
+            });
         }
       } else {
         // Make sure it's paused if not active
@@ -647,6 +635,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
             src={video.videoFile}
             loop
             playsInline
+            muted={false}
             autoPlay
             className="absolute inset-0 w-full h-full object-cover bg-black max-w-full"
           />
@@ -794,7 +783,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
           <div className="flex items-center justify-between interactive-element">
             <div className="flex items-center gap-2">
               <Link
-                href={`/@${video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
+                href={`/@${video.creator.handle || video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
                 className="hover:opacity-90 transition-opacity"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -802,14 +791,14 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
                 }}
               >
                 <img
-                  src={video.creator.avatar ? `http://localhost:5000/uploads/profiles/${video.creator.avatar}` : 'http://localhost:5000/uploads/profiles/default-profile.png'}
+                  src={video.creator.avatar ? `https://quick-news-backend.vercel.app/uploads/profiles/${video.creator.avatar}` : 'https://quick-news-backend.vercel.app/uploads/profiles/default-profile.png'}
                   alt={video.creator.name}
                   style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}
                   className="rounded-full border border-white/20 select-none"
                 />
               </Link>
               <Link
-                href={`/@${video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
+                href={`/@${video.creator.handle || video.creator.name.toLowerCase().replace(/\s+/g, '')}`}
                 className="hover:opacity-90 transition-opacity block"
                 onClick={(e) => {
                   e.stopPropagation();
@@ -965,7 +954,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
   );
 }
 
-export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex = 0 }: VideoFeed2Props) {
+export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex = 0, onArticleOpenChange }: VideoFeed2Props) {
   const [activeVideoIndex, setActiveVideoIndex] = useState(initialVideoIndex);
   const [hasOpenComments, setHasOpenComments] = useState(false);
   const [hasOpenArticle, setHasOpenArticle] = useState(false);
@@ -977,22 +966,52 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isSeekbarDragging, setIsSeekbarDragging] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
+  const [lastScrollTop, setLastScrollTop] = useState(0);
     
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const feedRef = useRef<HTMLDivElement>(null);
-  const [currentVideoIndex, setCurrentVideoIndex] = useState(0);
+  const scrollTimeout = useRef<NodeJS.Timeout | null>(null);
+  const isProgrammaticScroll = useRef(false);
   
-  // Determine current category based on pathname
-  const currentCategory = pathname === '/' || pathname === '/foryou' ? 'For You' : 
-    pathname.slice(1).charAt(0).toUpperCase() + pathname.slice(2);
+  // --- SWIPE TO SCROLL STATE & REFS ---
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStartY, setDragStartY] = useState<number | null>(null);
+  const [dragDeltaY, setDragDeltaY] = useState(0);
+  const [swipeLocked, setSwipeLocked] = useState(false);
+  const dragStartTime = useRef<number | null>(null);
+  const SWIPE_THRESHOLD = 60; // px
+  
+  // More sophisticated swipe detection (from VideoFeed)
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
+  const dragTimeout = useRef<NodeJS.Timeout | null>(null);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY2, setTouchStartY2] = useState<number | null>(null);
+  const [swipeDirection, setSwipeDirection] = useState<'none' | 'horizontal' | 'vertical'>('none');
+  const swipeHandledRef = useRef(false);
+  
+  // --- Refs for always-fresh state in native handler ---
+  const activeVideoIndexRef = useRef(activeVideoIndex);
+  const videosLengthRef = useRef(videos.length);
+  const swipeLockedRef = useRef(swipeLocked);
+  const hasOpenCommentsRef = useRef(hasOpenComments);
+  const hasOpenArticleRef = useRef(hasOpenArticle);
+  
+  useEffect(() => { activeVideoIndexRef.current = activeVideoIndex; }, [activeVideoIndex]);
+  useEffect(() => { videosLengthRef.current = videos.length; }, [videos.length]);
+  useEffect(() => { swipeLockedRef.current = swipeLocked; }, [swipeLocked]);
+  useEffect(() => { hasOpenCommentsRef.current = hasOpenComments; }, [hasOpenComments]);
+  useEffect(() => { hasOpenArticleRef.current = hasOpenArticle; }, [hasOpenArticle]);
 
   // Add function to fetch comments
   const fetchComments = async (videoId: string) => {
     try {
       setIsLoadingComments(true);
-      const response = await axios.get('http://localhost:5000/api/engagement/comments', {
+      const response = await axios.get('https://quick-news-backend.vercel.app/api/engagement/comments', {
         params: {
           contentId: videoId,
           contentType: 'Video',
@@ -1043,7 +1062,7 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
           const handle = creatorHandle.replace('@', '').toLowerCase();
           
           // First fetch the creator's profile by handle
-          const profileResponse = await axios.get(`http://localhost:5000/api/profile/handle/${handle}`, {
+          const profileResponse = await axios.get(`https://quick-news-backend.vercel.app/api/profile/handle/${handle}`, {
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
@@ -1057,14 +1076,14 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
           const creatorId = profileResponse.data.data.profile._id;
           
           // Then fetch videos using the creator's MongoDB ID
-          response = await axios.get(`http://localhost:5000/api/videos/creator/${creatorId}`, {
+          response = await axios.get(`https://quick-news-backend.vercel.app/api/videos/creator/${creatorId}`, {
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
             }
           });
         } else {
-          response = await axios.get('http://localhost:5000/api/videos/feed', {
+          response = await axios.get('https://quick-news-backend.vercel.app/api/videos/feed', {
             headers: {
               'Content-Type': 'application/json',
               'Accept': 'application/json'
@@ -1075,19 +1094,30 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
         if (response.data && Array.isArray(response.data.videos)) {
           const videosWithUrls = response.data.videos.map((video: any) => ({
             id: video._id,
-            videoFile: `http://localhost:5000/api/videos/${video._id}/stream`,
-            thumbnail: video.thumbnail ? `http://localhost:5000/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png',
+            videoFile: `https://quick-news-backend.vercel.app/api/videos/${video._id}/stream`,
+            thumbnail: video.thumbnail ? `https://quick-news-backend.vercel.app/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png',
             title: video.title || 'Untitled Video',
             description: video.description || 'No description available',
             likes: video.likes || 0,
             comments: video.comments || 0,
             creator: {
               name: video.creator?.name || 'Anonymous',
+              handle: video.creator?.handle || video.creator?.name?.toLowerCase().replace(/\s+/g, '') || 'anonymous',
               avatar: video.creator?.profilePicture
             },
             headline: video.headline
           }));
           setVideos(videosWithUrls);
+          
+          // Set active video to initialVideoIndex after videos are loaded
+          setActiveVideoIndex(initialVideoIndex);
+          
+          // Scroll to the selected video after videos are loaded
+          setTimeout(() => {
+            if (videosWithUrls[initialVideoIndex]) {
+              document.getElementById(`video-${videosWithUrls[initialVideoIndex].id}`)?.scrollIntoView({ behavior: 'auto' });
+            }
+          }, 100);
         } else {
           throw new Error('Invalid response format from server');
         }
@@ -1111,7 +1141,51 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
     };
 
     fetchVideos();
-  }, [creatorHandle]); // Add creatorHandle as dependency to refetch when it changes
+  }, [creatorHandle, initialVideoIndex]);
+
+  // Add this effect after videos are loaded to scroll to and play the initial video
+  useEffect(() => {
+    if (!isLoading && videos.length > 0 && initialVideoIndex < videos.length) {
+      // Ensure we're at the right index
+      setActiveVideoIndex(initialVideoIndex);
+      
+      // Find and scroll to the video element
+      const videoElement = document.getElementById(`video-${videos[initialVideoIndex].id}`);
+      if (videoElement) {
+        isProgrammaticScroll.current = true;
+        videoElement.scrollIntoView({ behavior: 'auto', block: 'start' });
+        setTimeout(() => { isProgrammaticScroll.current = false; }, 400);
+        
+        // Find the video tag and play it
+        const videoTag = videoElement.querySelector('video');
+        if (videoTag) {
+          // If there's another video playing, pause it first
+          if (currentlyPlayingVideoRef.current && currentlyPlayingVideoRef.current !== videoTag) {
+            currentlyPlayingVideoRef.current.pause();
+          }
+          
+          // Set this as the currently playing video
+          currentlyPlayingVideoRef.current = videoTag;
+          
+          // Improved autoplay with muted fallback to ensure it plays
+          videoTag.muted = true;
+          const playPromise = videoTag.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                // Unmute after successful autoplay
+                videoTag.muted = false;
+              })
+              .catch((error) => {
+                console.error("Initial video autoplay failed:", error);
+                // Keep it muted and try again
+                videoTag.play().catch(e => console.error("Muted autoplay also failed:", e));
+              });
+          }
+        }
+      }
+    }
+  }, [isLoading, videos, initialVideoIndex]);
 
   // Handle back button click
   const handleBackClick = () => {
@@ -1149,22 +1223,12 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
     };
   }, [videos]);
 
-  // Add debug log for videos state changes
-  useEffect(() => {
-    console.log('Videos state updated:', videos);
-  }, [videos]);
-
-  // Add debug log for loading state changes
-  useEffect(() => {
-    console.log('Loading state:', isLoading);
-  }, [isLoading]);
-
   useEffect(() => {
     const videoId = searchParams.get('v');
     if (videoId) {
       const videoIndex = videos.findIndex(v => v.id === videoId);
       if (videoIndex !== -1) {
-        setCurrentVideoIndex(videoIndex);
+        setActiveVideoIndex(videoIndex);
         const videoElement = document.getElementById(`video-${videoId}`);
         if (videoElement) {
           videoElement.scrollIntoView({ behavior: 'auto' });
@@ -1198,88 +1262,277 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
     };
   }, [activeVideoIndex, videos]);
 
+  // Handle scroll function
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (hasOpenComments || hasOpenArticle) return;
+    if (isProgrammaticScroll.current) return;
+    
+    const element = e.currentTarget;
+    const newIndex = Math.round(element.scrollTop / element.clientHeight);
+    if (newIndex !== activeVideoIndex) {
+      setActiveVideoIndex(newIndex);
+      
+      // Pause all videos first
+      const allVideos = document.querySelectorAll('video');
+      allVideos.forEach(video => {
+        video.pause();
+      });
+      
+      // Clear the currently playing video reference
+      currentlyPlayingVideoRef.current = null;
+      
+      // Force autoplay for the newly active video and reset to beginning
+      setTimeout(() => {
+        const videoElements = document.querySelectorAll('video');
+        if (videoElements[newIndex]) {
+          const videoElement = videoElements[newIndex] as HTMLVideoElement;
+          videoElement.currentTime = 0; // Reset to beginning
+          
+          // Set this as the currently playing video
+          currentlyPlayingVideoRef.current = videoElement;
+          
+          // Improved autoplay with muted fallback
+          videoElement.muted = true; // Temporarily mute to improve autoplay chances
+          const playPromise = videoElement.play();
+          if (playPromise !== undefined) {
+            playPromise
+              .then(() => {
+                videoElement.muted = false; // Unmute after successful play
+              })
+              .catch((error) => {
+                console.error("Scroll autoplay failed:", error);
+                // Try again with muted playback as fallback
+                videoElement.muted = true;
+                videoElement.play().catch(e => console.error("Muted autoplay also failed:", e));
+              });
+          }
+        }
+      }, 100); // Small delay to ensure the video is ready
+    }
+
+    // Detect if we're actually scrolling vertically
+    const currentScrollTop = element.scrollTop;
+    const scrollDiff = Math.abs(currentScrollTop - lastScrollTop);
+    setLastScrollTop(currentScrollTop);
+
+    if (scrollDiff > 5) { // Threshold to determine if we're actually scrolling
+      setIsScrolling(true);
+      
+      // Clear existing timeout
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current);
+      }
+      
+      // Set new timeout to clear scrolling state
+      scrollTimeout.current = setTimeout(() => {
+        setIsScrolling(false);
+      }, 300); // Increased timeout for better user experience
+    }
+  };
+
+  // --- SOPHISTICATED TOUCH HANDLERS (matching VideoFeed) ---
+  const handleTouchStart = (e: React.TouchEvent) => {
+    console.log('[DEBUG] handleTouchStart fired', e.touches[0].clientX, e.touches[0].clientY);
+    if (hasOpenComments || hasOpenArticle) return;
+    setTouchStartX(e.touches[0].clientX);
+    setTouchStartY2(e.touches[0].clientY);
+    setIsDragging(true);
+    setIsScrolling(false);
+    setSwipeDirection('none');
+    swipeHandledRef.current = false;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    console.log('[DEBUG] handleTouchMove fired', e.touches[0].clientX, e.touches[0].clientY);
+    if (!isDragging || hasOpenComments || hasOpenArticle) return;
+    if (swipeHandledRef.current) return; // Only allow one swipe per gesture
+    const currentX = e.touches[0].clientX;
+    const currentY = e.touches[0].clientY;
+    if (touchStartX === null || touchStartY2 === null) return;
+    const dx = currentX - touchStartX;
+    const dy = currentY - touchStartY2;
+    
+    // Determine swipe direction if not set
+    if (swipeDirection === 'none') {
+      if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+        setSwipeDirection('horizontal');
+      } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
+        setSwipeDirection('vertical');
+      }
+    }
+    
+    // Horizontal swipe is ignored for VideoFeed2
+    if (swipeDirection === 'horizontal') {
+      if (dragTimeout.current) clearTimeout(dragTimeout.current);
+      dragTimeout.current = setTimeout(() => {
+        setIsDragging(false);
+        setDragOffset(0);
+        setTouchStart(null);
+        setTouchStartX(null);
+        setTouchStartY2(null);
+        touchStartY.current = null;
+      }, 300);
+    }
+    
+    // Vertical swipe: video scroll
+    if (swipeDirection === 'vertical') {
+      e.preventDefault();
+      const threshold = 50;
+      if (Math.abs(dy) > threshold) {
+        let newIndex = activeVideoIndex;
+        if (dy > 0 && activeVideoIndex > 0) {
+          newIndex = activeVideoIndex - 1;
+        } else if (dy < 0 && activeVideoIndex < videos.length - 1) {
+          newIndex = activeVideoIndex + 1;
+        }
+        if (newIndex !== activeVideoIndex) {
+          swipeHandledRef.current = true;
+          setActiveVideoIndex(newIndex);
+          isProgrammaticScroll.current = true;
+          setTimeout(() => {
+            document.getElementById(`video-${videos[newIndex]?.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            setTimeout(() => { isProgrammaticScroll.current = false; }, 400);
+          }, 0);
+        }
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    console.log('[DEBUG] handleTouchEnd fired');
+    setIsDragging(false);
+    setDragOffset(0);
+    setTouchStart(null);
+    setTouchStartX(null);
+    setTouchStartY2(null);
+    touchStartY.current = null;
+  };
+
+  // Remove onTouchMove from the feed container's JSX and add a useEffect for native event
+  useEffect(() => {
+    const feed = feedRef.current;
+    if (!feed) return;
+    
+    // Handler that mimics React's event signature
+    const nativeTouchMove = (e: TouchEvent) => {
+      // Only process if we're dragging and not handling comments/articles
+      if (!isDragging || hasOpenCommentsRef.current || hasOpenArticleRef.current) return;
+      if (swipeHandledRef.current) return; // Only allow one swipe per gesture
+      
+      const touch = e.touches[0];
+      if (!touch) return;
+      const currentX = touch.clientX;
+      const currentY = touch.clientY;
+      
+      if (touchStartX === null || touchStartY2 === null) return;
+      const dx = currentX - touchStartX;
+      const dy = currentY - touchStartY2;
+      
+      // Determine swipe direction if not set
+      if (swipeDirection === 'none') {
+        if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 10) {
+          setSwipeDirection('horizontal');
+        } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 10) {
+          setSwipeDirection('vertical');
+        }
+      }
+      
+      // Vertical swipe: video scroll
+      if (swipeDirection === 'vertical') {
+        e.preventDefault();
+        const threshold = 50;
+        if (Math.abs(dy) > threshold) {
+          let newIndex = activeVideoIndexRef.current;
+          if (dy > 0 && activeVideoIndexRef.current > 0) {
+            newIndex = activeVideoIndexRef.current - 1;
+          } else if (dy < 0 && activeVideoIndexRef.current < videosLengthRef.current - 1) {
+            newIndex = activeVideoIndexRef.current + 1;
+          }
+          if (newIndex !== activeVideoIndexRef.current) {
+            swipeHandledRef.current = true;
+            setActiveVideoIndex(newIndex);
+            isProgrammaticScroll.current = true;
+            setTimeout(() => {
+              document.getElementById(`video-${videos[newIndex]?.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              setTimeout(() => { isProgrammaticScroll.current = false; }, 400);
+            }, 0);
+          }
+        }
+      }
+    };
+    
+    feed.addEventListener('touchmove', nativeTouchMove, { passive: false });
+    return () => {
+      feed.removeEventListener('touchmove', nativeTouchMove);
+    };
+  }, [isDragging, videos, touchStartX, touchStartY2, swipeDirection]);
+
+  // Scroll to the correct video when activeVideoIndex changes
+  useEffect(() => {
+    if (!feedRef.current || isProgrammaticScroll.current) return;
+    isProgrammaticScroll.current = true;
+    feedRef.current.scrollTo({
+      top: feedRef.current.clientHeight * activeVideoIndex,
+      behavior: 'smooth',
+    });
+    setTimeout(() => { isProgrammaticScroll.current = false; }, 400);
+  }, [activeVideoIndex]);
+
   // Ensure video restarts and autoplays on swipe (activeVideoIndex change)
   useEffect(() => {
     if (!videos[activeVideoIndex]) return;
     // Find the video element for the active video
     const videoElement = document.querySelector(`#video-${videos[activeVideoIndex].id} video`) as HTMLVideoElement;
     if (!videoElement) return;
-    // Restart video and autoplay
+    
+    // Restart video and autoplay with muted fallback
     videoElement.currentTime = 0;
+    
+    // If there's another video playing, pause it first
+    if (currentlyPlayingVideoRef.current && currentlyPlayingVideoRef.current !== videoElement) {
+      currentlyPlayingVideoRef.current.pause();
+    }
+    
+    // Set this as the currently playing video
+    currentlyPlayingVideoRef.current = videoElement;
+    
+    // Start muted to ensure autoplay works in most browsers
+    videoElement.muted = true;
     const playPromise = videoElement.play();
     if (playPromise !== undefined) {
-      playPromise.catch(() => {}); // Ignore errors for autoplay
+      playPromise
+        .then(() => {
+          // Unmute after successful play
+          videoElement.muted = false;
+        })
+        .catch((error) => {
+          console.error("Active index change autoplay failed:", error);
+          // Keep it muted and try again
+          videoElement.play().catch(e => console.error("Muted autoplay also failed:", e));
+        });
     }
   }, [activeVideoIndex, videos]);
 
-  // --- SWIPE TO SCROLL STATE & REFS (ultra-reliable, kawaii!) ---
-  const [isDragging, setIsDragging] = useState(false);
-  const [dragStartY, setDragStartY] = useState<number | null>(null);
-  const [dragDeltaY, setDragDeltaY] = useState(0);
-  const [swipeLocked, setSwipeLocked] = useState(false);
-  const dragStartTime = useRef<number | null>(null);
-  const SWIPE_THRESHOLD = 60; // px
-  // --- Refs for always-fresh state in native handler ---
-  const activeVideoIndexRef = useRef(activeVideoIndex);
-  const videosLengthRef = useRef(videos.length);
-  const swipeLockedRef = useRef(swipeLocked);
-  useEffect(() => { activeVideoIndexRef.current = activeVideoIndex; }, [activeVideoIndex]);
-  useEffect(() => { videosLengthRef.current = videos.length; }, [videos.length]);
-  useEffect(() => { swipeLockedRef.current = swipeLocked; }, [swipeLocked]);
-
-  // --- TOUCH HANDLERS (vertical swipe only, kawaii!) ---
-  const handleTouchStart = (e: React.TouchEvent) => {
-    console.log('[SWIPE DEBUG] TouchStart');
-    if (hasOpenComments || hasOpenArticle) return;
-    setIsDragging(true);
-    setSwipeLocked(false);
-    setDragStartY(e.touches[0].clientY);
-    setDragDeltaY(0);
-    dragStartTime.current = Date.now();
-  };
-  const handleTouchEnd = () => {
-    console.log('[SWIPE DEBUG] TouchEnd');
-    setIsDragging(false);
-    setDragStartY(null);
-    setDragDeltaY(0);
-    setSwipeLocked(false);
-    dragStartTime.current = null;
-  };
-  // --- NATIVE TOUCH MOVE EFFECT (for buttery mobile swipes!) ---
+  // Cleanup timeouts on unmount
   useEffect(() => {
-    const feed = feedRef.current;
-    if (!feed) return;
-    const handleNativeTouchMove = (e: TouchEvent) => {
-      if (isDragging && !swipeLockedRef.current) {
-        e.preventDefault();
-        console.log('[SWIPE DEBUG] NativeTouchMove', e.touches[0]?.clientY);
-        const touch = e.touches[0];
-        if (!touch) return;
-        const currentY = touch.clientY;
-        if (dragStartY === null) return;
-        const deltaY = currentY - dragStartY;
-        setDragDeltaY(deltaY);
-        if (Math.abs(deltaY) > SWIPE_THRESHOLD && !swipeLockedRef.current) {
-          swipeLockedRef.current = true;
-          setSwipeLocked(true);
-          const direction = deltaY > 0 ? -1 : 1;
-          let newIndex = activeVideoIndexRef.current + direction;
-          newIndex = Math.max(0, Math.min(videosLengthRef.current - 1, newIndex));
-          console.log('[SWIPE DEBUG] Swiping to video', newIndex);
-          if (newIndex !== activeVideoIndexRef.current) {
-            setActiveVideoIndex(newIndex);
-            setTimeout(() => {
-              document.getElementById(`video-${videos[newIndex]?.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 0);
-          }
-        }
+    return () => {
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current);
+      }
+      if (dragTimeout.current) {
+        clearTimeout(dragTimeout.current);
       }
     };
-    feed.addEventListener('touchmove', handleNativeTouchMove, { passive: false });
-    return () => {
-      feed.removeEventListener('touchmove', handleNativeTouchMove);
-    };
-  }, [isDragging, dragStartY, videos]);
+  }, []);
+
+  // Handle setHasOpenArticle with external callback
+  const handleArticleOpenChange = (isOpen: boolean) => {
+    setHasOpenArticle(isOpen);
+    // Also notify parent component if callback is provided
+    if (onArticleOpenChange) {
+      onArticleOpenChange(isOpen);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -1337,11 +1590,14 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
       <div 
         ref={feedRef}
         className="w-full flex-1 overflow-y-scroll snap-y snap-mandatory scrollbar-hide relative h-screen"
+        onScroll={handleScroll}
         style={{
           minHeight: '100vh',
           cursor: isDragging ? 'grabbing' : 'default',
           pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto',
-          touchAction: isDragging ? 'none' : 'pan-y'
+          touchAction: isDragging ? 'none' : 'pan-y',
+          transform: isDragging ? `translateX(${dragOffset}px)` : 'none',
+          transition: isDragging ? 'none' : 'transform 0.2s ease-out',
         }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
@@ -1356,7 +1612,7 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
             <div
               key={video.id}
               id={`video-${video.id}`}
-              className={`relative w-full h-full snap-start ${index === currentVideoIndex ? 'z-10' : 'z-0'}`}
+              className={`relative w-full h-full snap-start ${index === activeVideoIndex ? 'z-10' : 'z-0'}`}
             >
               <VideoPost
                 video={video}
@@ -1364,14 +1620,14 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
                 isCommentsOpen={hasOpenComments}
                 onCommentsOpenChange={setHasOpenComments}
                 isArticleOpen={hasOpenArticle}
-                onArticleOpenChange={setHasOpenArticle}
+                onArticleOpenChange={handleArticleOpenChange}
               />
             </div>
           ))
         )}
       </div>
       {/* Bottom Navigation */}
-      <div className="w-full mx-auto z-50">
+      <div className="w-full mx-auto z-50" style={{ pointerEvents: hasOpenComments || hasOpenArticle ? 'none' : 'auto' }}>
         <BottomNav />
       </div>
       {/* Comments Component */}
@@ -1387,9 +1643,11 @@ export default function VideoFeed2({ creatorHandle, onClose, initialVideoIndex =
       {videos[activeVideoIndex] && (
         <ArticlePopup 
           isOpen={hasOpenArticle}
-          onClose={() => setHasOpenArticle(false)}
+          onClose={() => handleArticleOpenChange(false)}
           title={videos[activeVideoIndex].title}
           content={videos[activeVideoIndex].description}
+          videoId={videos[activeVideoIndex].id}
+          videoCreator={videos[activeVideoIndex].creator}
         />
       )}
     </div>
