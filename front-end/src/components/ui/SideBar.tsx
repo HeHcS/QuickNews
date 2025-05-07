@@ -114,7 +114,6 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
                 width={48}
                 height={48}
                 className="object-cover"
-                style={{ width: getResponsiveSize(48), height: getResponsiveSize(48) }}
                 onError={(e) => {
                   // Fallback to local default image if the backend one fails
                   const target = e.target as HTMLImageElement;
