@@ -19,7 +19,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Configuration
-const BASE_URL = process.env.API_URL || 'http://localhost:5000/api';
+const BASE_URL = process.env.API_URL || 'https://quick-news-backend.vercel.app/api';
 let authToken = null;
 let testVideoId = null;
 let testCategoryId = null;

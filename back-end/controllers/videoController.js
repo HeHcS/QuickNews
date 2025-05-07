@@ -1,4 +1,5 @@
 import Video from '../models/videoModel.js';
+import Article from '../models/articleModel.js';
 import Bookmark from '../models/bookmarkModel.js';
 import mongoose from 'mongoose';
 import { streamVideo, getVideosDir } from '../utils/videoStream.js';
@@ -9,6 +10,7 @@ import path from 'path';
 import fs from 'fs';
 import ffmpegService from '../utils/ffmpegService.js';
 import { fileURLToPath } from 'url';
+import { generateArticleFromVideo } from '../services/openaiService.js';
 
 // ES Module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -104,7 +106,7 @@ export const getVideoFeed = async (req, res) => {
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('creator', 'name profilePicture');
+      .populate('creator', 'name profilePicture handle');
     
     // If user is authenticated, include information about likes and bookmarks
     if (userId) {
@@ -407,7 +409,7 @@ export const getVideoById = async (req, res) => {
     
     // Find the video with populated fields
     const video = await Video.findById(videoId)
-      .populate('creator', 'name profilePicture')
+      .populate('creator', 'name profilePicture handle')
       .populate('categories', 'name icon color')
       .populate('linkedArticle');
     
@@ -592,7 +594,7 @@ export const getUserBookmarks = async (req, res) => {
       .populate({
         path: 'video',
         populate: [
-          { path: 'creator', select: 'name profilePicture' },
+          { path: 'creator', select: 'name profilePicture handle' },
           { path: 'categories', select: 'name icon color' }
         ]
       });
@@ -699,12 +701,49 @@ export const uploadVideo = catchAsync(async (req, res, next) => {
   const video = await Video.create(videoData);
   console.log('Created video record:', JSON.stringify(video, null, 2));
 
-  res.status(201).json({
-    status: 'success',
-    data: {
-      video
-    }
-  });
+  // Generate article from video using OpenAI
+  try {
+    console.log('Generating article from video...');
+    // The OpenAI service now handles API key checks, retries, and fallbacks internally
+    const { title, content } = await generateArticleFromVideo(video.title, video.description);
+    
+    // Create article linked to the video
+    const articleData = {
+      title,
+      content,
+      author: req.user._id,
+      summary: video.description,
+      tags: video.tags,
+      categories: video.categories,
+      relatedVideo: video._id,
+      status: 'published',
+      isPublished: true
+    };
+    
+    const article = await Article.create(articleData);
+    console.log('Created article from video:', article._id);
+    
+    // Return both video and generated article
+    res.status(201).json({
+      status: 'success',
+      data: {
+        video,
+        generatedArticle: {
+          id: article._id,
+          title: article.title
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Error generating article:', error);
+    // Continue with response even if article generation fails
+    res.status(201).json({
+      status: 'success',
+      data: {
+        video
+      }
+    });
+  }
 });
 
 // Get all videos with pagination
@@ -919,7 +958,8 @@ export const getCreatorVideos = catchAsync(async (req, res) => {
       userLikeInfo: 0,
       bookmarkInfo: 0,
       'creator.password': 0,
-      'creator.email': 0
+      'creator.email': 0,
+      // Ensure handle is not excluded
     }
   });
 
@@ -947,4 +987,4 @@ export const getCreatorVideos = catchAsync(async (req, res) => {
   await setCache(cacheKey, response, 300); // Cache for 5 minutes
 
   res.json(response);
-}); 
+});
