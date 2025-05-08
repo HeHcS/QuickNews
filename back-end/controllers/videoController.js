@@ -8,7 +8,8 @@ import { catchAsync } from '../utils/catchAsync.js';
 import AppError from '../utils/appError.js';
 import path from 'path';
 import fs from 'fs';
-import ffmpegService from '../utils/ffmpegService.js';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { fileURLToPath } from 'url';
 import { generateArticleFromVideo } from '../services/openaiService.js';
 
@@ -25,6 +26,9 @@ const CACHE_KEYS = {
   CATEGORIES: 'categories:',
   VIDEO: 'video:'
 };
+
+// Set ffmpeg path
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 /**
  * Stream a specific video
@@ -661,9 +665,10 @@ export const uploadVideo = catchAsync(async (req, res, next) => {
     thumbnailPath = path.basename(req.files.thumbnail[0].path);
   } else {
     // Extract first frame as thumbnail
-    const thumbnailFileName = `thumb-${req.files.video[0].filename}.jpg`;
+    const thumbnailFileName = `thumbnail-${req.user._id}-${Date.now()}.jpg`;
+    thumbnailPath = thumbnailFileName;
     const thumbnailDir = path.join(__dirname, '../uploads/thumbnails');
-    const thumbnailPath = path.join(thumbnailDir, thumbnailFileName);
+    const thumbnailFullPath = path.join(thumbnailDir, thumbnailFileName);
     
     // Ensure thumbnails directory exists
     if (!fs.existsSync(thumbnailDir)) {
@@ -672,11 +677,23 @@ export const uploadVideo = catchAsync(async (req, res, next) => {
     
     // Extract first frame using FFmpeg
     try {
-      await ffmpegService.generateThumbnail(videoFullPath, thumbnailPath);
-      // Set thumbnailPath to just the filename for storage in the database
-      thumbnailPath = thumbnailFileName;
+      await new Promise((resolve, reject) => {
+        ffmpeg(videoFullPath)
+          .screenshots({
+            timestamps: ['00:00:01'], // Take screenshot at 1 second to avoid black frames
+            filename: thumbnailFileName,
+            folder: thumbnailDir,
+            size: '720x?', // 720p width, maintain aspect ratio
+          })
+          .on('end', resolve)
+          .on('error', (err) => {
+            console.error('Error extracting thumbnail:', err);
+            reject(err);
+          });
+      });
     } catch (error) {
       console.error('Failed to extract thumbnail:', error);
+      // Use default thumbnail if extraction fails
       thumbnailPath = 'default-thumbnail.png';
     }
   }
