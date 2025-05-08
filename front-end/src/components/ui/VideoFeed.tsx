@@ -787,7 +787,7 @@ function VideoPost({ video, isActive, isCommentsOpen, onCommentsOpenChange, onAr
                 }}
               >
                 <img
-                  src={video.creator.avatar ? `https://quick-news-backend.vercel.app/uploads/profiles/${video.creator.avatar}` : 'https://quick-news-backend.vercel.app/uploads/profiles/default-profile.png'}
+                  src={video.creator.avatar ? `http://localhost:5000/uploads/profiles/${video.creator.avatar}` : 'http://localhost:5000/uploads/profiles/default-profile.png'}
                   alt={video.creator.name}
                   style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}
                   className="rounded-full border border-white/20 select-none"
@@ -1021,7 +1021,7 @@ export default function VideoFeed() {
   const fetchComments = async (videoId: string) => {
     try {
       setIsLoadingComments(true);
-      const response = await axios.get('https://quick-news-backend.vercel.app/api/engagement/comments', {
+      const response = await axios.get('http://localhost:5000/api/engagement/comments', {
         params: {
           contentId: videoId,
           contentType: 'Video',
@@ -1081,7 +1081,7 @@ export default function VideoFeed() {
         console.log('Current category:', currentCategory);
         
         // Fetch videos from backend
-        const response = await axios.get('https://quick-news-backend.vercel.app/api/videos/feed', {
+        const response = await axios.get('http://localhost:5000/api/videos/feed', {
           params,
           headers: {
             'Content-Type': 'application/json',
@@ -1096,8 +1096,8 @@ export default function VideoFeed() {
           // Map the response to include full video URLs and format the data
           const videosWithUrls = response.data.videos.map((video: any) => ({
             id: video._id,
-            videoFile: `https://quick-news-backend.vercel.app/api/videos/${video._id}/stream`,
-            thumbnail: video.thumbnail ? `https://quick-news-backend.vercel.app/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png',
+            videoFile: `http://localhost:5000/api/videos/${video._id}/stream`,
+            thumbnail: video.thumbnail ? `http://localhost:5000/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png',
             title: video.title || 'Untitled Video',
             description: video.description || 'No description available',
             likes: video.likes || 0,

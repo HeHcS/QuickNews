@@ -45,7 +45,7 @@ export default function ArticlePopup({ isOpen, onClose, title, content, videoId,
       setIsLoading(true);
       setError(null);
       
-      const response = await axios.get(`https://quick-news-backend.vercel.app/api/articles/video/${videoId}`);
+      const response = await axios.get(`http://localhost:5000/api/articles/video/${videoId}`);
       
       if (response.data && response.data.status === 'success' && response.data.article) {
         // If article data is found, update the state
@@ -165,7 +165,7 @@ export default function ArticlePopup({ isOpen, onClose, title, content, videoId,
                 <div className="flex items-center gap-2">
                   <img
                     src={videoCreator?.avatar 
-                      ? `https://quick-news-backend.vercel.app/uploads/profiles/${videoCreator.avatar}` 
+                      ? `http://localhost:5000/uploads/profiles/${videoCreator.avatar}` 
                       : "https://picsum.photos/seed/dailymail/32/32"}
                     alt={videoCreator?.name || "Source"}
                     style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}

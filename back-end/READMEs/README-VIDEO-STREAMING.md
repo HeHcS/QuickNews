@@ -120,7 +120,7 @@ The video feed algorithm:
 Client:
 ```javascript
 const videoPlayer = document.querySelector('video');
-videoPlayer.src = `https://quick-news-backend.vercel.app/api/videos/${videoId}/stream`;
+videoPlayer.src = `http://localhost:5000/api/videos/${videoId}/stream`;
 ```
 
 ### Creating a Bookmark

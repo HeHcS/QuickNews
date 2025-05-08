@@ -35,7 +35,7 @@
 2. Install dependencies: `npm install`
 3. Create `.env` file from `.env.example`
 4. Run development server: `npm run dev`
-5. Open https://quick-news-frontend.vercel.app
+5. Open http://localhost:3000
 
 ## Development Scripts
 - `dev` - Start Next.js development server

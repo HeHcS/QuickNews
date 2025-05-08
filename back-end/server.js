@@ -29,7 +29,7 @@ const app = express();
 
 // CORS Configuration
 const corsOptions = {
-  origin: ['https://quick-news-frontend.vercel.app', 'https://quick-news-backend.vercel.app'],
+  origin: ['http://localhost:3000'],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   credentials: true
@@ -160,7 +160,7 @@ const startServer = async () => {
   // Initialize Socket.IO
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL || 'https://quick-news-frontend.vercel.app',
+      origin: process.env.CLIENT_URL || 'http://localhost:3000',
       methods: ['GET', 'POST']
     }
   });

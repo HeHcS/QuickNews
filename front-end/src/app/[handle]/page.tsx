@@ -59,7 +59,7 @@ export default function CreatorPage() {
   const [userData, setUserData] = useState({
     name: '',
     handle: handle,
-    avatar: `https://quick-news-backend.vercel.app/uploads/profiles/default-profile.png`,
+    avatar: `http://localhost:5000/uploads/profiles/default-profile.png`,
     bio: 'Feed your daily addiction with the biggest stories from news, politics, showbiz and everything else.',
     stats: {
       posts: 134,
@@ -85,7 +85,7 @@ export default function CreatorPage() {
       setError(null);
       try {
         const handleLower = handle.toLowerCase();
-        const profileRes = await axios.get(`https://quick-news-backend.vercel.app/api/profile/handle/${handleLower}`);
+        const profileRes = await axios.get(`http://localhost:5000/api/profile/handle/${handleLower}`);
         const profile = profileRes.data?.data?.profile;
         const creatorId = profile?._id;
         if (!creatorId) throw new Error('Creator not found');
@@ -94,15 +94,15 @@ export default function CreatorPage() {
         setUserData(prev => ({
           ...prev,
           name: profile.name || '',
-          avatar: profile.profilePicture ? `https://quick-news-backend.vercel.app/uploads/profiles/${profile.profilePicture}` : prev.avatar,
+          avatar: profile.profilePicture ? `http://localhost:5000/uploads/profiles/${profile.profilePicture}` : prev.avatar,
           bio: profile.bio || prev.bio
         }));
 
-        const videosRes = await axios.get(`https://quick-news-backend.vercel.app/api/videos/creator/${creatorId}`);
+        const videosRes = await axios.get(`http://localhost:5000/api/videos/creator/${creatorId}`);
         // Process videos to include full URLs for thumbnails
         const processedVideos = (videosRes.data?.videos || []).map((video: VideoData) => ({
           ...video,
-          thumbnail: video.thumbnail ? `https://quick-news-backend.vercel.app/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png'
+          thumbnail: video.thumbnail ? `http://localhost:5000/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png'
         }));
         setVideos(processedVideos);
       } catch (err) {

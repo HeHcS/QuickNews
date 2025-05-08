@@ -12,7 +12,7 @@ const app = express();
 
 // CORS Configuration
 const corsOptions = {
-    origin: ['https://quick-news-frontend.vercel.app'], // Allow frontend ports
+    origin: ['http://localhost:3000'], // Allow frontend ports
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
     credentials: true, // Enable credentials (cookies, authorization headers)
