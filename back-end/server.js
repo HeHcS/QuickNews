@@ -48,7 +48,7 @@ app.use(express.urlencoded({ extended: false }));
 app.use(passport.initialize());
 
 // Environment variables
-const PORT = process.env.PORT || 9000;
+const PORT = process.env.PORT || 5000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const MONGODB_URI = process.env.MONGODB_URI;
 const TEST_MODE = process.env.TEST_MODE === 'true';

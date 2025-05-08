@@ -1,7 +1,19 @@
 {
+  "name": "quicknews",
+  "version": "1.0.0",
+  "description": "QuickNews video platform",
+  "scripts": {
+    "start": "npm-run-all --parallel start:backend start:frontend",
+    "start:backend": "cd back-end && npm run dev",
+    "start:frontend": "cd front-end && npm run dev",
+    "install:all": "npm install && npm run install:backend && npm run install:frontend",
+    "install:backend": "cd back-end && npm install",
+    "install:frontend": "cd front-end && npm install"
+  },
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
-    "fluent-ffmpeg": "^2.1.3"
+    "fluent-ffmpeg": "^2.1.3",
+    "npm-run-all": "^4.1.5"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.21",
