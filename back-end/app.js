@@ -10,9 +10,12 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Get frontend URL from environment variable or use default
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
 // CORS Configuration
 const corsOptions = {
-    origin: ['http://localhost:3000'], // Allow frontend ports
+    origin: [FRONTEND_URL], // Use environment variable for frontend URL
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Range'],
     credentials: true, // Enable credentials (cookies, authorization headers)

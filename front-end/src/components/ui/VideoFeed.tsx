@@ -12,6 +12,7 @@ import { APP_CATEGORIES } from '../../config/categories';
 import Link from 'next/link';
 import { Heart, Share2, Play, Pause, Volume2, VolumeX, ChevronDown, ChevronUp, MessageCircle, NewspaperIcon, XIcon, ArrowLeft } from 'lucide-react';
 import Image from 'next/image';
+import { API_ENDPOINTS } from '../../config/api';
 
 interface Video {
   id: string;
@@ -1021,7 +1022,7 @@ export default function VideoFeed() {
   const fetchComments = async (videoId: string) => {
     try {
       setIsLoadingComments(true);
-      const response = await axios.get('http://localhost:5000/api/engagement/comments', {
+      const response = await axios.get(API_ENDPOINTS.ENGAGEMENT.COMMENTS, {
         params: {
           contentId: videoId,
           contentType: 'Video',
@@ -1081,7 +1082,7 @@ export default function VideoFeed() {
         console.log('Current category:', currentCategory);
         
         // Fetch videos from backend
-        const response = await axios.get('http://localhost:5000/api/videos/feed', {
+        const response = await axios.get(API_ENDPOINTS.VIDEOS.FEED, {
           params,
           headers: {
             'Content-Type': 'application/json',
@@ -1096,8 +1097,8 @@ export default function VideoFeed() {
           // Map the response to include full video URLs and format the data
           const videosWithUrls = response.data.videos.map((video: any) => ({
             id: video._id,
-            videoFile: `http://localhost:5000/api/videos/${video._id}/stream`,
-            thumbnail: video.thumbnail ? `http://localhost:5000/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png',
+            videoFile: API_ENDPOINTS.VIDEOS.STREAM(video._id),
+            thumbnail: video.thumbnail ? `${API_ENDPOINTS.STATIC.THUMBNAILS}/${video.thumbnail}` : '/default-thumbnail.png',
             title: video.title || 'Untitled Video',
             description: video.description || 'No description available',
             likes: video.likes || 0,

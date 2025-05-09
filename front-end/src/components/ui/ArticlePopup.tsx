@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
+import { API_ENDPOINTS } from '../../config/api';
 
 // Helper function for responsive sizing based on viewport height
 const getResponsiveSize = (baseSize: number): string => {
@@ -45,7 +46,7 @@ export default function ArticlePopup({ isOpen, onClose, title, content, videoId,
       setIsLoading(true);
       setError(null);
       
-      const response = await axios.get(`http://localhost:5000/api/articles/video/${videoId}`);
+      const response = await axios.get(API_ENDPOINTS.ARTICLES.BY_VIDEO(videoId));
       
       if (response.data && response.data.status === 'success' && response.data.article) {
         // If article data is found, update the state
@@ -165,7 +166,7 @@ export default function ArticlePopup({ isOpen, onClose, title, content, videoId,
                 <div className="flex items-center gap-2">
                   <img
                     src={videoCreator?.avatar 
-                      ? `http://localhost:5000/uploads/profiles/${videoCreator.avatar}` 
+                      ? `${API_ENDPOINTS.STATIC.PROFILES}/${videoCreator.avatar}` 
                       : "https://picsum.photos/seed/dailymail/32/32"}
                     alt={videoCreator?.name || "Source"}
                     style={{ width: getResponsiveSize(32), height: getResponsiveSize(32) }}

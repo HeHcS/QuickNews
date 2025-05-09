@@ -9,6 +9,7 @@ import ArticlePopup from '@/components/ui/ArticlePopup';
 import VideoFeed2 from '@/components/ui/VideoFeed2';
 import axios from 'axios';
 import Image from 'next/image';
+import { API_ENDPOINTS } from '@/config/api';
 
 // Calculate responsive sizes based on viewport height (700px reference)
 const getResponsiveSize = (baseSize: number): string => {
@@ -59,7 +60,7 @@ export default function CreatorPage() {
   const [userData, setUserData] = useState({
     name: '',
     handle: handle,
-    avatar: `http://localhost:5000/uploads/profiles/default-profile.png`,
+    avatar: API_ENDPOINTS.STATIC.DEFAULT_PROFILE,
     bio: 'Feed your daily addiction with the biggest stories from news, politics, showbiz and everything else.',
     stats: {
       posts: 134,
@@ -85,7 +86,7 @@ export default function CreatorPage() {
       setError(null);
       try {
         const handleLower = handle.toLowerCase();
-        const profileRes = await axios.get(`http://localhost:5000/api/profile/handle/${handleLower}`);
+        const profileRes = await axios.get(API_ENDPOINTS.PROFILE.BY_HANDLE(handleLower));
         const profile = profileRes.data?.data?.profile;
         const creatorId = profile?._id;
         if (!creatorId) throw new Error('Creator not found');
@@ -94,15 +95,19 @@ export default function CreatorPage() {
         setUserData(prev => ({
           ...prev,
           name: profile.name || '',
-          avatar: profile.profilePicture ? `http://localhost:5000/uploads/profiles/${profile.profilePicture}` : prev.avatar,
+          avatar: profile.profilePicture 
+            ? `${API_ENDPOINTS.STATIC.PROFILES}/${profile.profilePicture}` 
+            : prev.avatar,
           bio: profile.bio || prev.bio
         }));
 
-        const videosRes = await axios.get(`http://localhost:5000/api/videos/creator/${creatorId}`);
+        const videosRes = await axios.get(API_ENDPOINTS.VIDEOS.CREATOR(creatorId));
         // Process videos to include full URLs for thumbnails
         const processedVideos = (videosRes.data?.videos || []).map((video: VideoData) => ({
           ...video,
-          thumbnail: video.thumbnail ? `http://localhost:5000/uploads/thumbnails/${video.thumbnail}` : '/default-thumbnail.png'
+          thumbnail: video.thumbnail 
+            ? `${API_ENDPOINTS.STATIC.THUMBNAILS}/${video.thumbnail}` 
+            : '/default-thumbnail.png'
         }));
         setVideos(processedVideos);
       } catch (err) {

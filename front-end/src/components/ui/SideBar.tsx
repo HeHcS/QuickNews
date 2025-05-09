@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { ChevronLeft, Bell, Settings, LogOut, User, Bookmark, HelpCircle, Shield, Lock, AtSign, ChevronRight } from 'lucide-react';
 import Image from 'next/image';
+import { API_ENDPOINTS } from '../../config/api';
 
 // Calculate responsive sizes based on viewport height (700px reference)
 const getResponsiveSize = (baseSize: number): string => {
@@ -109,16 +110,11 @@ export default function SideBar({ isOpen, onClose }: SideBarProps) {
           <div className="flex items-center gap-4">
             <div style={{ width: getResponsiveSize(48), height: getResponsiveSize(48) }} className="rounded-full bg-gradient-to-br from-[#29ABE2] to-[#1E88C5] overflow-hidden border-2 border-white/20">
               <Image
-                src="http://localhost:5000/uploads/profiles/default-profile.png"
-                alt="Profile"
+                src={API_ENDPOINTS.STATIC.DEFAULT_PROFILE}
+                alt="User Profile"
                 width={48}
                 height={48}
                 className="object-cover"
-                onError={(e) => {
-                  // Fallback to local default image if the backend one fails
-                  const target = e.target as HTMLImageElement;
-                  target.src = '/assets/default-profile.png';
-                }}
               />
             </div>
             <div>
